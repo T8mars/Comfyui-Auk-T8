@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "repository": "https://huggingface.co/t8star/Auk-Comfy",
+  "models": {
+    "AuK-Flash": {
+      "source": "tencent/AuK-Flash",
+      "revision": "575b92f0895f75180bf2cbd35f2e176c5732b8ed",
+      "files": {
+        "auk_flash.safetensors": {"size": 6122209092, "sha256": "9b3ec1400a9ebcc87ee540ebfad0aeeb08e4f210149e190b1469fd8eeb977fe4"},
+        "vae.safetensors": {"size": 637322604, "sha256": "0f5857fd0d6b916d161c73fef433e0ccb42484a2dad3aa08e8a51975e29a0645"},
+        "config.yaml": {"size": 1322, "sha256": "65149f38c90003f4b73a6bd5ea74911a67fc1512740e402dad923d27a35e2e17"}
+      }
+    },
+    "AuK": {
+      "source": "tencent/AuK",
+      "revision": "790742b71a4430120daf2b2099192abae449eb9f",
+      "files": {
+        "auk_base.safetensors": {"size": 6122209092, "sha256": "29c65c0c6045e8d8fb454019f99c9680508f553fc98fa143feaca3711d0b8614"},
+        "vae.safetensors": {"size": 637322604, "sha256": "0f5857fd0d6b916d161c73fef433e0ccb42484a2dad3aa08e8a51975e29a0645"},
+        "config.yaml": {"size": 1310, "sha256": "04d5cbae386342c5d031bcf53be594b167ec488ae82434e1d1d43fea7315a77b"}
+      }
+    },
+    "Qwen2.5-Omni-3B": {
+      "source": "Qwen/Qwen2.5-Omni-3B",
+      "revision": "f75b40e3da2003cdd6e1829b1f420ca70797c34e",
+      "files": {
+        "config.json": {"size": 13183, "sha256": "20790f362c37a1718a3e764f597ae33dfc20177399762018dffaabf8321d4dd1"},
+        "generation_config.json": {"size": 74, "sha256": "b9acf52072249e0e1850541d51ca4c85a30b9d7e23c2f2093ec0fb4139059ac7"},
+        "preprocessor_config.json": {"size": 667, "sha256": "b47055ce61463ce143e9aab741d55c0aa520801a0a5d63be73c5b17cecb6bc69"},
+        "chat_template.json": {"size": 1313, "sha256": "1933f7ca08e6503460e981d9037ddc0b851196abfa3aceea52d6ee0c0fdfd9f0"},
+        "added_tokens.json": {"size": 579, "sha256": "e81a2cc3bd867a1217019eed202d1d8a07e1063ece716f22060dda14f6cc07d8"},
+        "special_tokens_map.json": {"size": 832, "sha256": "dc241604d085780a33f760f69c47e6622451104c20eee3cd3a12b6e884b43f44"},
+        "tokenizer_config.json": {"size": 6469, "sha256": "569aa7a9171e36dfff80f0a7550ab0c9c09e46ac840fea5030641417394fb0d2"},
+        "tokenizer.json": {"size": 11421870, "sha256": "8441917e39ae0244e06d704b95b3124795cec478e297f9afac39ba670d7e9d99"},
+        "merges.txt": {"size": 1671853, "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"},
+        "vocab.json": {"size": 2776833, "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"},
+        "spk_dict.pt": {"size": 259544, "sha256": "6a05609b28f5d42b7b748f0f07592545c8f1f6885b9ae8fff64baf56e86b2a18"},
+        "model.safetensors.index.json": {"size": 241817, "sha256": "5b7629198e2ef80e37612a491d9bfd71639d2f212632d36d8ab086922e74e129"},
+        "model-00001-of-00003.safetensors": {"size": 4994850880, "sha256": "349972cebff443030e9e96e1e930d7230979c6961cf046fa29fc580e4bcf49a6"},
+        "model-00002-of-00003.safetensors": {"size": 4999787448, "sha256": "b29a76dfefb3aa33a5bd0faa19c681d039a44de57223653ea0e933df728c6d8c"},
+        "model-00003-of-00003.safetensors": {"size": 1978024880, "sha256": "8f2138170a87ec604b53232491a96d6dcf19e0724aca37e69aace143e508b170"}
+      }
+    }
+  }
+}
