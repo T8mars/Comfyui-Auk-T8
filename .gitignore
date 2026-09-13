@@ -5,6 +5,6 @@ __pycache__/
 .idea/
 .vscode/
 node.zip
+node-*.zip
 auk-local-config.json
 session-token
-
