@@ -18,8 +18,51 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+      - name: Check whether this version is already published
+        id: registry-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' pyproject.toml | head -n 1)"
+          versions="$(curl --silent --show-error --fail \
+            "https://api.comfy.org/nodes/auk-t8/versions")"
+          if jq -e --arg version "${current_version}" \
+            'any(.[]; .version == $version)' <<<"${versions}" >/dev/null; then
+            echo "exists=true" >>"${GITHUB_OUTPUT}"
+          else
+            echo "exists=false" >>"${GITHUB_OUTPUT}"
+          fi
       - name: Publish custom node
+        if: steps.registry-version.outputs.exists != 'true'
         uses: Comfy-Org/publish-node-action@main
         with:
           personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+      - name: Update release notes and deprecate incomplete package
+        env:
+          REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.comfy.org"
+          publisher="t8star"
+          node="auk-t8"
+          auth="Authorization: Bearer ${REGISTRY_ACCESS_TOKEN}"
 
+          versions="$(curl --silent --show-error --fail "${api}/nodes/${node}/versions")"
+          current_id="$(jq -r '.[] | select(.version == "1.0.1") | .id' <<<"${versions}" | head -n 1)"
+          old_id="$(jq -r '.[] | select(.version == "1.0.0") | .id' <<<"${versions}" | head -n 1)"
+          test -n "${current_id}"
+
+          curl --fail-with-body --retry 3 --request PUT \
+            --url "${api}/publishers/${publisher}/nodes/${node}/versions/${current_id}" \
+            --header "${auth}" \
+            --header "Content-Type: application/json" \
+            --data '{"changelog":"Initial public release with the two audited AuK Local V3 nodes and three included example workflows.","deprecated":false}'
+
+          if [[ -n "${old_id}" ]]; then
+            curl --fail-with-body --retry 3 --request PUT \
+              --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
+              --header "${auth}" \
+              --header "Content-Type: application/json" \
+              --data '{"changelog":"Superseded by 1.0.1, which includes the three example workflows in the Registry package.","deprecated":true}'
+          fi
