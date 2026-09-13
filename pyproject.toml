@@ -1,6 +1,6 @@
 [project]
 name = "auk-t8"
-version = "1.0.0"
+version = "1.0.1"
 description = "ComfyUI V3 bridge nodes for AuK Local speech generation and editing."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,4 +22,4 @@ PublisherId = "t8star"
 DisplayName = "AuK Local · T8star-Aix"
 Icon = "https://raw.githubusercontent.com/T8mars/Comfyui-Auk-T8/main/assets/icon.svg"
 requires-comfyui = ">=0.3.48"
-
+includes = ["example_workflows"]
