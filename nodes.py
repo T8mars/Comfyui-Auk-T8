@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import io as bytes_io
 import json
-import os
 import time
 import urllib.error
 import urllib.parse
@@ -90,13 +89,7 @@ def validate_loopback_url(base_url: str) -> str:
 
 def resolve_token_file(setting: str) -> Path:
     if setting.strip():
-        return Path(os.path.expandvars(setting)).expanduser().resolve()
-    environment = os.environ.get("AUK_LOCAL_TOKEN_FILE")
-    if environment:
-        return Path(environment).expanduser().resolve()
-    home = os.environ.get("AUK_LOCAL_HOME")
-    if home:
-        return Path(home).expanduser().resolve() / "data" / "session-token"
+        return Path(setting).expanduser().resolve()
     config_file = Path(__file__).with_name("auk-local-config.json")
     if config_file.is_file():
         config = json.loads(config_file.read_text(encoding="utf-8"))

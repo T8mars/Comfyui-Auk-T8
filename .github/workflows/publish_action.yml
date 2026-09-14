@@ -48,21 +48,40 @@ jobs:
           node="auk-t8"
           auth="Authorization: Bearer ${REGISTRY_ACCESS_TOKEN}"
 
-          versions="$(curl --silent --show-error --fail "${api}/nodes/${node}/versions")"
-          current_id="$(jq -r '.[] | select(.version == "1.0.1") | .id' <<<"${versions}" | head -n 1)"
-          old_id="$(jq -r '.[] | select(.version == "1.0.0") | .id' <<<"${versions}" | head -n 1)"
-          test -n "${current_id}"
+          get_version_id() {
+            local version="$1"
+            local version_id=""
+            for _ in {1..12}; do
+              version_id="$(curl --silent --show-error --fail \
+                "${api}/nodes/${node}/versions?cacheBust=$(date +%s%N)" | \
+                jq -r --arg version "${version}" \
+                  '.[] | select(.version == $version) | .id' | head -n 1)" || true
+              if [[ -n "${version_id}" ]]; then
+                printf '%s' "${version_id}"
+                return 0
+              fi
+              sleep 5
+            done
+            echo "Registry version ${version} was not readable after publication" >&2
+            return 1
+          }
+
+          current_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' pyproject.toml | head -n 1)"
+          current_id="$(get_version_id "${current_version}")"
 
           curl --fail-with-body --retry 3 --request PUT \
             --url "${api}/publishers/${publisher}/nodes/${node}/versions/${current_id}" \
             --header "${auth}" \
             --header "Content-Type: application/json" \
-            --data '{"changelog":"Initial public release with the two audited AuK Local V3 nodes and three included example workflows.","deprecated":false}'
+            --data '{"changelog":"Removes optional environment-variable token discovery to satisfy Registry scanning; explicit token_file and installer-generated configuration remain supported.","deprecated":false}'
 
-          if [[ -n "${old_id}" ]]; then
-            curl --fail-with-body --retry 3 --request PUT \
-              --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
-              --header "${auth}" \
-              --header "Content-Type: application/json" \
-              --data '{"changelog":"Superseded by 1.0.1, which includes the three example workflows in the Registry package.","deprecated":true}'
-          fi
+          for old_version in 1.0.0 1.0.1; do
+            old_id="$(get_version_id "${old_version}")"
+            if [[ -n "${old_id}" ]]; then
+              curl --fail-with-body --retry 3 --request PUT \
+                --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
+                --header "${auth}" \
+                --header "Content-Type: application/json" \
+                --data '{"changelog":"Superseded by 1.0.2, which removes the Registry scanner false-positive trigger.","deprecated":true}'
+            fi
+          done

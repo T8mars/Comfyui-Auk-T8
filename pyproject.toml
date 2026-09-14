@@ -1,6 +1,6 @@
 [project]
 name = "auk-t8"
-version = "1.0.1"
+version = "1.0.2"
 description = "ComfyUI V3 bridge nodes for AuK Local speech generation and editing."
 readme = "README.md"
 requires-python = ">=3.10"
