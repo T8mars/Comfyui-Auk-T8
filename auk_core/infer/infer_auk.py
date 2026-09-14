@@ -147,13 +147,12 @@ class AukInfer:
             f"Loaded EMA weights | missing={len(missing)} (text_encoder.*={n_missing_te}, other={n_missing_other}) "
             f"| unexpected={len(unexpected)}"
         )
-        if n_missing_other:
-            logger.warning(
-                "Some non-text-encoder weights are missing; check config/arch matches the checkpoint. "
-                f"Examples: {[k for k in missing if not k.startswith('text_encoder.')][:10]}"
+        missing_other = [key for key in missing if not key.startswith("text_encoder.")]
+        if missing_other or unexpected:
+            raise RuntimeError(
+                "AuK checkpoint does not match its config: "
+                f"missing non-text weights={missing_other[:10]}, unexpected weights={unexpected[:10]}"
             )
-        if unexpected:
-            logger.warning(f"Unexpected keys in checkpoint: {unexpected[:10]}")
         if self.device.startswith("cuda"):
             torch.cuda.empty_cache()
 

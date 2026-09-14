@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
+import importlib.util
 import json
+import sys
 import threading
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,7 +17,7 @@ import torch
 class FakeEngine:
     is_flash = True
     target_sample_rate = 24_000
-    downsample_rate = 1_920
+    downsample_rate = 480
     model_variant = "AuK-Flash"
     model_revision = "test-model-revision"
     qwen_revision = "test-qwen-revision"
@@ -118,6 +122,13 @@ def test_sequence_limit_counts_source_and_target(plugin):
         plugin.nodes.validate_sequence_duration(engine, source, 20.1)
 
 
+def test_sequence_limit_rejects_sub_frame_reference(plugin):
+    engine = FakeEngine()
+    source = (torch.zeros(1, engine.downsample_rate - 1), engine.target_sample_rate)
+    with pytest.raises(ValueError, match="输入音频过短"):
+        plugin.nodes.validate_sequence_duration(engine, source, 1.0)
+
+
 def test_native_engine_seed_covers_reference_encoding_and_restores_rng(plugin):
     engine = plugin.runtime.AuKEngine.__new__(plugin.runtime.AuKEngine)
     engine.device = torch.device("cpu")
@@ -137,10 +148,88 @@ def test_native_engine_seed_covers_reference_encoding_and_restores_rng(plugin):
     assert torch.equal(first, second)
 
 
+def test_fp32_cuda_setting_does_not_enter_unsupported_autocast(plugin):
+    engine = plugin.runtime.AuKEngine.__new__(plugin.runtime.AuKEngine)
+    engine.device = torch.device("cuda:0")
+    engine.inference = SimpleNamespace(dtype=torch.float32)
+    assert isinstance(engine._autocast(), nullcontext)
+
+
+def test_unload_releases_selected_non_default_cuda_device(plugin, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        plugin.runtime.model_management,
+        "unload_model_and_clones",
+        lambda patcher, **kwargs: calls.append((patcher, kwargs)),
+    )
+    patcher = SimpleNamespace(load_device=torch.device("cuda:1"), model=None)
+    plugin.runtime.AuKEngine._unload(patcher)
+    assert calls == [(patcher, {"all_devices": True})]
+
+
+def test_cpu_components_bypass_comfy_gpu_model_registry(plugin, monkeypatch):
+    load_calls = []
+    unload_calls = []
+    monkeypatch.setattr(
+        plugin.runtime.model_management,
+        "load_models_gpu",
+        lambda *args, **kwargs: load_calls.append((args, kwargs)),
+    )
+    monkeypatch.setattr(
+        plugin.runtime.model_management,
+        "unload_model_and_clones",
+        lambda *args, **kwargs: unload_calls.append((args, kwargs)),
+    )
+    engine = plugin.runtime.AuKEngine.__new__(plugin.runtime.AuKEngine)
+    patcher = SimpleNamespace(load_device=torch.device("cpu"), model=torch.nn.Identity())
+    engine._load(patcher)
+    engine._unload(patcher)
+    assert load_calls == []
+    assert unload_calls == []
+
+
+def test_reference_load_failure_still_requests_unload(plugin):
+    engine = plugin.runtime.AuKEngine.__new__(plugin.runtime.AuKEngine)
+    engine.device = torch.device("cpu")
+    engine.vae_patcher = SimpleNamespace(load_device=torch.device("cpu"), model=torch.nn.Identity())
+    engine.inference = SimpleNamespace(latent_dim=64, target_sample_rate=24_000, downsample_rate=480)
+    unloaded = []
+    engine._load = lambda _patcher: (_ for _ in ()).throw(RuntimeError("load failed"))
+    engine._unload = lambda patcher: unloaded.append(patcher)
+
+    with pytest.raises(RuntimeError, match="load failed"):
+        engine._encode_reference((torch.zeros(1, 480), 24_000), lambda _phase: None)
+    assert unloaded == [engine.vae_patcher]
+
+
 def test_runtime_only_accepts_safetensors(plugin):
     root = Path(plugin.__file__).parent / "auk_core"
     source = "\n".join(path.read_text(encoding="utf-8") for path in root.rglob("*.py"))
     assert "torch.load(" not in source
+
+
+def test_vae_checkpoint_mismatch_is_fatal(plugin, tmp_path, monkeypatch):
+    import safetensors.torch
+
+    vae_module = importlib.import_module(f"{plugin.__name__}.auk_core.model.vae")
+    monkeypatch.setattr(safetensors.torch, "load_file", lambda *_args, **_kwargs: {"wrong": torch.ones(1)})
+    checkpoint = tmp_path / "vae.safetensors"
+    checkpoint.touch()
+    with pytest.raises(RuntimeError, match="does not match"):
+        vae_module.load_ckpt(torch.nn.Linear(1, 1), str(checkpoint))
+
+
+def test_auk_checkpoint_mismatch_is_fatal(plugin, tmp_path, monkeypatch):
+    import safetensors.torch
+
+    infer_module = importlib.import_module(f"{plugin.__name__}.auk_core.infer.infer_auk")
+    monkeypatch.setattr(safetensors.torch, "load_file", lambda *_args, **_kwargs: {"wrong": torch.ones(1)})
+    checkpoint = tmp_path / "auk.safetensors"
+    checkpoint.touch()
+    inference = infer_module.AukInfer.__new__(infer_module.AukInfer)
+    inference.device = "cpu"
+    with pytest.raises(RuntimeError, match="does not match"):
+        inference._load_ema_weights(torch.nn.Linear(1, 1), str(checkpoint))
 
 
 def test_model_paths_are_confined_to_comfy_models(plugin, tmp_path, monkeypatch):
@@ -162,6 +251,43 @@ def test_model_paths_are_confined_to_comfy_models(plugin, tmp_path, monkeypatch)
     assert qwen.is_relative_to(tmp_path)
 
 
+def test_model_paths_support_split_extra_auk_roots(plugin, tmp_path, monkeypatch):
+    default_root = tmp_path / "default"
+    model_root = tmp_path / "model-extra"
+    qwen_root = tmp_path / "qwen-extra"
+    manifest = {
+        "models": {
+            "AuK-Flash": {
+                "files": {
+                    "auk_flash.safetensors": {"size": 1},
+                    "vae.safetensors": {"size": 1},
+                    "config.yaml": {"size": 1},
+                }
+            },
+            "Qwen2.5-Omni-3B": {"files": {"config.json": {"size": 1}}},
+        }
+    }
+    monkeypatch.setattr(plugin.nodes, "MODEL_ROOT", default_root)
+    monkeypatch.setattr(plugin.nodes, "load_manifest", lambda: manifest)
+    monkeypatch.setattr(
+        plugin.nodes.folder_paths,
+        "get_folder_paths",
+        lambda _name: [str(default_root), str(model_root), str(qwen_root)],
+    )
+    for relative in ("AuK-Flash/auk_flash.safetensors", "AuK-Flash/vae.safetensors", "AuK-Flash/config.yaml"):
+        path = model_root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    qwen_file = qwen_root / "Qwen2.5-Omni-3B/config.json"
+    qwen_file.parent.mkdir(parents=True, exist_ok=True)
+    qwen_file.write_bytes(b"x")
+
+    checkpoint, config, qwen = plugin.nodes.resolve_model_files("AuK-Flash")
+    assert checkpoint == model_root / "AuK-Flash/auk_flash.safetensors"
+    assert config == model_root / "AuK-Flash/config.yaml"
+    assert qwen == qwen_root / "Qwen2.5-Omni-3B"
+
+
 def test_example_workflows_only_use_native_node_ids(plugin):
     root = Path(plugin.__file__).parent / "example_workflows"
     for path in root.glob("*.json"):
@@ -170,3 +296,27 @@ def test_example_workflows_only_use_native_node_ids(plugin):
         assert "AuKModelLoader" in node_ids
         assert "AuKGenerateEdit" in node_ids
         assert not {"AuKLocalConnection", "AuKLocalGenerateEdit"} & node_ids
+        assert "SaveAudio" in node_ids
+        assert "SaveAudioAdvanced" not in node_ids
+
+
+def test_downloader_pins_the_mirror_revision(plugin, tmp_path, monkeypatch):
+    root = Path(plugin.__file__).parent
+    spec = importlib.util.spec_from_file_location("auk_download_models_test", root / "download_models.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    received: dict[str, object] = {}
+    verified = []
+
+    def fake_download(**kwargs):
+        received.update(kwargs)
+
+    monkeypatch.setattr(module, "snapshot_download", fake_download)
+    monkeypatch.setattr(module, "verify", lambda *args: verified.append(args))
+    monkeypatch.setattr(sys, "argv", ["download_models.py", "--model-root", str(tmp_path)])
+    module.main()
+
+    manifest = json.loads((root / "MODEL_MANIFEST.json").read_text(encoding="utf-8"))
+    assert received["repo_id"] == "t8star/Auk-Comfy"
+    assert received["revision"] == manifest["repository_revision"]
+    assert verified[0][2] is True

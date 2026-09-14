@@ -180,7 +180,7 @@
     },
     {
       "id": 5,
-      "type": "SaveAudioAdvanced",
+      "type": "SaveAudio",
       "pos": [
         1090,
         220
@@ -208,11 +208,10 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SaveAudioAdvanced"
+        "Node name for S&R": "SaveAudio"
       },
       "widgets_values": [
-        "auk/声音克隆",
-        "flac"
+        "auk/声音克隆"
       ]
     }
   ],

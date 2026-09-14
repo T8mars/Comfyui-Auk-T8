@@ -1,9 +1,4 @@
-import logging
-
 from .bigvgan_flow_vae import BigVGANFlowVAE, BigVGANFlowVAEConfig
-
-
-logger = logging.getLogger(__file__)
 
 
 def load_ckpt(model, model_path, map_location="cpu"):
@@ -13,10 +8,11 @@ def load_ckpt(model, model_path, map_location="cpu"):
 
     state_dict = load_file(model_path, device=map_location)
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
-    if missing:
-        logging.warning(f"  [WARN] Missing keys: {missing}")
-    if unexpected:
-        logging.warning(f"  [WARN] Unexpected keys: {unexpected}")
+    if missing or unexpected:
+        raise RuntimeError(
+            "AuK VAE checkpoint does not match its config: "
+            f"missing weights={missing[:10]}, unexpected weights={unexpected[:10]}"
+        )
     return model
 
 

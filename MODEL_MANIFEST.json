@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "repository": "https://huggingface.co/t8star/Auk-Comfy",
+  "repository_revision": "326a675046f653f4df2eed89ac3195b028db1749",
   "models": {
     "AuK-Flash": {
       "source": "tencent/AuK-Flash",

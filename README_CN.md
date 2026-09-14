@@ -23,7 +23,7 @@
 
 ### ComfyUI Manager
 
-在 ComfyUI Manager 搜索 **AuK · T8star-Aix**，安装后重启 ComfyUI。
+在 ComfyUI Manager 搜索 **AuK · T8star-Aix**，安装后重启 ComfyUI。请确认 Manager 提供的是 2.0.1 或更高版本；如果 Registry 尚在处理、仍显示旧版本，请先使用 Git 安装。
 
 ### Git
 
@@ -31,7 +31,7 @@
 cd ComfyUI/custom_nodes
 git clone https://github.com/T8mars/Comfyui-Auk-T8
 cd Comfyui-Auk-T8
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 必须使用运行 ComfyUI 的同一个 Python 安装依赖。`requirements.txt` 不会安装或更换 PyTorch、TorchAudio。
@@ -66,6 +66,8 @@ python download_models.py --variant base
 python download_models.py --variant all
 ```
 
+下载器固定到 `MODEL_MANIFEST.json` 记录的已测试 Hugging Face 快照，并默认校验 SHA-256；只有明确需要更快的仅尺寸检查时才使用 `--skip-sha256`。加载器也会搜索 `extra_model_paths.yaml` 中注册为 `auk` 的全部路径；AuK 权重与 Qwen 目录可以放在不同的已注册根目录中。
+
 Flash + Qwen 约需 18.7 GB，两种 AuK 模型与 Qwen 全部下载约需 25.5 GB。
 
 ## 使用
@@ -77,7 +79,7 @@ Flash + Qwen 约需 18.7 GB，两种 AuK 模型与 Qwen 全部下载约需 25.5 
 
 输入/参考音频与生成目标共用 30 秒序列上限。CPU 模式可用于兼容测试，但速度很慢，推荐 NVIDIA CUDA 与 bf16。
 
-> 2.0.0 从旧版 HTTP 桥接架构改为原生节点。旧工作流中的 `AuKLocalConnection` 和 `AuKLocalGenerateEdit` 已移除，请改用随 2.0.0 提供的新工作流。
+> 2.0.1 是当前原生版本，替换旧 HTTP 桥接，并修复模型路径发现、CPU 与多 GPU 模型生命周期、权重校验和工作流兼容问题。旧工作流中的 `AuKLocalConnection`、`AuKLocalGenerateEdit` 已移除；2.0.0 用户也应更新。
 
 ## 独立本地整合包
 

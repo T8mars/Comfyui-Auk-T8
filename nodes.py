@@ -33,34 +33,64 @@ def load_manifest() -> dict[str, Any]:
     return json.loads(Path(__file__).with_name("MODEL_MANIFEST.json").read_text(encoding="utf-8"))
 
 
+def model_search_roots() -> list[Path]:
+    """Return ComfyUI's default and extra configured AuK model roots."""
+    candidates = [MODEL_ROOT]
+    try:
+        candidates.extend(Path(path) for path in folder_paths.get_folder_paths("auk"))
+    except KeyError:
+        pass
+
+    roots: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        normalized = str(candidate.expanduser().resolve()).casefold()
+        if normalized not in seen:
+            roots.append(candidate.expanduser().resolve())
+            seen.add(normalized)
+    return roots
+
+
+def resolve_model_directory(directory_name: str, manifest: dict[str, Any]) -> Path:
+    problems: list[str] = []
+    for root in model_search_roots():
+        directory = root / directory_name
+        directory_problems: list[str] = []
+        for filename, details in manifest[directory_name]["files"].items():
+            path = directory / filename
+            if not path.is_file():
+                directory_problems.append(f"缺少 {path}")
+            elif path.stat().st_size != int(details["size"]):
+                directory_problems.append(f"大小不符 {path}")
+        if not directory_problems:
+            return directory
+        problems.extend(directory_problems)
+
+    preview = "；".join(problems[:5])
+    if len(problems) > 5:
+        preview += f"；另有 {len(problems) - 5} 个文件"
+    searched = "、".join(str(root) for root in model_search_roots())
+    raise FileNotFoundError(f"AuK 模型目录 {directory_name} 不完整：{preview}。已搜索：{searched}")
+
+
 def resolve_model_files(model_variant: str) -> tuple[Path, Path, Path]:
     if model_variant not in MODEL_VARIANTS:
         raise ValueError(f"未知模型：{model_variant}")
     model_directory, checkpoint_name = MODEL_VARIANTS[model_variant]
     qwen_directory = "Qwen2.5-Omni-3B"
     manifest = load_manifest()["models"]
-    problems: list[str] = []
-    for key, directory_name in ((model_directory, model_directory), (qwen_directory, qwen_directory)):
-        directory = MODEL_ROOT / directory_name
-        for filename, details in manifest[key]["files"].items():
-            path = directory / filename
-            if not path.is_file():
-                problems.append(f"缺少 {path}")
-            elif path.stat().st_size != int(details["size"]):
-                problems.append(f"大小不符 {path}")
-    if problems:
-        preview = "；".join(problems[:5])
-        if len(problems) > 5:
-            preview += f"；另有 {len(problems) - 5} 个文件"
+    try:
+        model_path = resolve_model_directory(model_directory, manifest)
+        qwen_path = resolve_model_directory(qwen_directory, manifest)
+    except FileNotFoundError as exc:
         download_variant = "flash" if model_directory == "AuK-Flash" else "base"
         raise FileNotFoundError(
-            f"AuK 模型不完整：{preview}。请把 Hugging Face t8star/Auk-Comfy 中的目录放到 {MODEL_ROOT}，"
+            f"{exc}。请把 Hugging Face t8star/Auk-Comfy 中的目录放到 ComfyUI/models/auk，"
             f"或在节点目录运行 python download_models.py --variant {download_variant}。"
-        )
-    checkpoint = MODEL_ROOT / model_directory / checkpoint_name
-    config = checkpoint.parent / "config.yaml"
-    qwen = MODEL_ROOT / qwen_directory
-    return checkpoint, config, qwen
+        ) from exc
+    checkpoint = model_path / checkpoint_name
+    config = model_path / "config.yaml"
+    return checkpoint, config, qwen_path
 
 
 def resolve_device(setting: str) -> torch.device:
@@ -81,15 +111,19 @@ def resolve_device(setting: str) -> torch.device:
 
 
 def resolve_dtype(setting: str, device: torch.device) -> str:
+    supports_bf16 = False
+    if device.type == "cuda":
+        with torch.cuda.device(device):
+            supports_bf16 = torch.cuda.is_bf16_supported()
     if setting == "auto":
         if device.type == "cpu":
             return "fp32"
-        return "bf16" if torch.cuda.is_bf16_supported() else "fp16"
+        return "bf16" if supports_bf16 else "fp16"
     if setting not in {"bf16", "fp16", "fp32"}:
         raise ValueError(f"不支持的数据类型：{setting}")
     if device.type == "cpu" and setting != "fp32":
         raise ValueError("CPU 推理必须使用 fp32")
-    if device.type == "cuda" and setting == "bf16" and not torch.cuda.is_bf16_supported():
+    if device.type == "cuda" and setting == "bf16" and not supports_bf16:
         raise ValueError("当前 CUDA 设备不支持 bf16，请选择 fp16")
     return setting
 

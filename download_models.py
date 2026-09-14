@@ -48,13 +48,22 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Download native AuK ComfyUI models")
     parser.add_argument("--variant", choices=VARIANT_DIRECTORIES, default="flash")
     parser.add_argument("--model-root", type=Path, default=default_model_root())
-    parser.add_argument("--verify-sha256", action="store_true")
+    verification = parser.add_mutually_exclusive_group()
+    verification.add_argument("--verify-sha256", dest="verify_sha256", action="store_true")
+    verification.add_argument("--skip-sha256", dest="verify_sha256", action="store_false")
+    parser.set_defaults(verify_sha256=True)
     args = parser.parse_args()
     model_root = args.model_root.expanduser().resolve()
     model_root.mkdir(parents=True, exist_ok=True)
     directories = VARIANT_DIRECTORIES[args.variant]
     patterns = [pattern for directory in directories for pattern in (f"{directory}/*", f"{directory}/assets/*")]
-    snapshot_download(repo_id=REPOSITORY, local_dir=model_root, allow_patterns=patterns)
+    manifest = json.loads(Path(__file__).with_name("MODEL_MANIFEST.json").read_text(encoding="utf-8"))
+    snapshot_download(
+        repo_id=REPOSITORY,
+        revision=manifest["repository_revision"],
+        local_dir=model_root,
+        allow_patterns=patterns,
+    )
     verify(model_root, directories, args.verify_sha256)
     print(f"AuK models are ready in {model_root}")
 

@@ -23,7 +23,7 @@ Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing
 
 ### ComfyUI Manager
 
-Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.1 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
 
 ### Git
 
@@ -31,7 +31,7 @@ Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart Com
 cd ComfyUI/custom_nodes
 git clone https://github.com/T8mars/Comfyui-Auk-T8
 cd Comfyui-Auk-T8
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 Install dependencies with the same Python interpreter that runs ComfyUI. The requirements do not install or replace PyTorch or TorchAudio.
@@ -66,6 +66,8 @@ python download_models.py --variant base
 python download_models.py --variant all
 ```
 
+The downloader is pinned to the tested Hugging Face snapshot recorded in `MODEL_MANIFEST.json` and verifies SHA-256 by default; use `--skip-sha256` only when you intentionally want a faster size-only check. The loader also searches every path registered as `auk` in `extra_model_paths.yaml`; the AuK checkpoint and Qwen folder may be stored in different registered roots.
+
 Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require about 25.5 GB.
 
 ## Run
@@ -77,7 +79,7 @@ Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require abou
 
 Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
 
-> Version 2.0.0 replaces the old HTTP bridge with native nodes. Old workflows containing `AuKLocalConnection` and `AuKLocalGenerateEdit` must be replaced with the workflows shipped in 2.0.0.
+> Version 2.0.1 is the current native release. It replaces the old HTTP bridge and fixes model-path discovery, CPU and multi-GPU model lifecycle, checkpoint validation, and workflow compatibility. Replace workflows containing `AuKLocalConnection` or `AuKLocalGenerateEdit`, and update from 2.0.0.
 
 ## Standalone local package
 
