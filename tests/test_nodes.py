@@ -50,9 +50,53 @@ def test_runtime_has_no_service_client(plugin):
 
 def test_all_task_templates_build_local_instruction(plugin):
     assert len(plugin.nodes.TASKS) == 16
+    discrete_inputs = {"pitch": "+2", "speed": "1.25", "volume": "-10"}
     for task in plugin.nodes.TASKS:
-        instruction = plugin.nodes.build_instruction(task.key, "主要内容", "附加要求")
-        assert "主要内容" in instruction
+        primary = discrete_inputs.get(task.key, "主要内容")
+        instruction = plugin.nodes.build_instruction(task.key, primary, "附加要求")
+        assert instruction
+
+
+def test_zero_shot_uses_official_instruction_without_reference_transcript(plugin):
+    instruction = plugin.nodes.build_instruction("zero_shot_tts", "你好", "参考音频文字")
+    assert instruction == 'Say the following with the same voice: "你好"'
+    assert "参考音频文字" not in instruction
+
+
+@pytest.mark.parametrize(
+    ("task_key", "value", "expected"),
+    [
+        ("pitch", "+2", "将音调升高2个半音。"),
+        ("pitch", "降低 3 个半音", "将音调降低3个半音。"),
+        ("volume", "+10", "将音量升高10分贝。"),
+        ("volume", "-5 dB", "将音量降低5分贝。"),
+    ],
+)
+def test_signed_adjustments_use_official_direction_templates(plugin, task_key, value, expected):
+    assert plugin.nodes.build_instruction(task_key, value) == expected
+
+
+@pytest.mark.parametrize(("task_key", "value"), [("pitch", "0"), ("pitch", "4"), ("volume", "3")])
+def test_signed_adjustments_reject_unsupported_values(plugin, task_key, value):
+    with pytest.raises(ValueError):
+        plugin.nodes.build_instruction(task_key, value)
+
+
+@pytest.mark.parametrize("value", ["升高 -2 个半音", "降低 +2 个半音"])
+def test_signed_adjustments_reject_conflicting_direction(plugin, value):
+    with pytest.raises(ValueError, match="冲突"):
+        plugin.nodes.build_instruction("pitch", value)
+
+
+@pytest.mark.parametrize(("value", "expected"), [("1.5", "将语速调整为1.5倍。"), ("2x", "将语速调整为2倍。")])
+def test_speed_uses_supported_official_multipliers(plugin, value, expected):
+    assert plugin.nodes.build_instruction("speed", value) == expected
+
+
+@pytest.mark.parametrize("value", ["1", "1.8", "快一点"])
+def test_speed_rejects_ambiguous_or_unsupported_values(plugin, value):
+    with pytest.raises(ValueError, match="速度倍率"):
+        plugin.nodes.build_instruction("speed", value)
 
 
 def test_normalize_audio_downmixes_to_mono(plugin):
@@ -113,6 +157,84 @@ def test_audio_generation_passes_mono_audio_to_engine(plugin):
     messages, audio = engine.call[:2]
     assert audio[0].shape == (1, 8_000)
     assert messages[0]["content"][1]["audio"].shape == (8_000,)
+
+
+def test_equal_length_task_uses_source_duration_and_reports_it(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 5), "sample_rate": 24_000}
+    result = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "情绪编辑",
+        "开心",
+        "",
+        3.0,
+        42,
+        input_audio=source,
+    )
+    assert engine.call[2] < 5.0
+    assert pytest.approx(engine.call[2], abs=1e-9) == 5.0
+    metadata = json.loads(result.result[2])
+    assert pytest.approx(metadata["generation_seconds"], abs=1e-9) == 5.0
+    assert metadata["requested_generation_seconds"] == 3.0
+    assert metadata["duration_strategy"] == "source"
+
+
+def test_manual_duration_task_keeps_requested_duration(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 5), "sample_rate": 24_000}
+    plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "参考声音克隆",
+        "测试文本",
+        "",
+        2.5,
+        42,
+        input_audio=source,
+    )
+    assert engine.call[2] == 2.5
+
+
+def test_speed_task_scales_source_duration(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 5), "sample_rate": 24_000}
+    plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "速度编辑",
+        "2x",
+        "",
+        3.0,
+        42,
+        input_audio=source,
+    )
+    assert engine.call[2] < 2.5
+    assert pytest.approx(engine.call[2], abs=1e-9) == 2.5
+
+
+def test_source_duration_matches_resampled_latent_frame_count(plugin):
+    engine = FakeEngine()
+    source = (torch.zeros(1, 321), 16_000)
+    assert plugin.runtime.source_latent_frames(engine, source) == 1
+    seconds = plugin.runtime.source_aligned_seconds(engine, source)
+    assert seconds < 0.02
+    assert plugin.runtime.math.ceil(seconds * engine.target_sample_rate / engine.downsample_rate) == 1
+
+
+def test_official_equal_length_tasks_are_marked_source_aligned(plugin):
+    expected = {
+        "lyric_edit",
+        "pitch",
+        "volume",
+        "emotion",
+        "timbre",
+        "deaccent",
+        "whisper",
+        "enhance",
+        "speech_separate",
+        "music_separate",
+        "target_speaker",
+    }
+    actual = {task.key for task in plugin.nodes.TASKS if task.duration_strategy == "source"}
+    assert actual == expected
 
 
 def test_sequence_limit_counts_source_and_target(plugin):

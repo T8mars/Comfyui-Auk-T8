@@ -12,7 +12,6 @@ import torchaudio
 from comfy import model_management
 from comfy.model_patcher import CoreModelPatcher
 
-
 MAX_SEQUENCE_SECONDS = 30.0
 QWEN_AUDIO_SAMPLE_RATE = 16_000
 
@@ -287,14 +286,31 @@ class AuKEngine:
                 self._unload(patcher)
 
 
+def source_latent_frames(engine: AuKEngine, audio: tuple[torch.Tensor, int] | None) -> int:
+    if audio is None:
+        return 0
+    waveform, sample_rate = audio
+    resampled_samples = math.ceil(waveform.shape[-1] * engine.target_sample_rate / sample_rate)
+    return resampled_samples // engine.downsample_rate
+
+
+def source_aligned_seconds(engine: AuKEngine, audio: tuple[torch.Tensor, int]) -> float:
+    return latent_frames_to_seconds(engine, source_latent_frames(engine, audio))
+
+
+def latent_frames_to_seconds(engine: AuKEngine, frames: int) -> float:
+    seconds = frames * engine.downsample_rate / engine.target_sample_rate
+    return math.nextafter(seconds, 0.0) if seconds > 0 else 0.0
+
+
 def validate_sequence_duration(engine: AuKEngine, audio: tuple[torch.Tensor, int] | None, target_seconds: float) -> None:
-    if not math.isfinite(target_seconds) or target_seconds <= 0:
-        raise ValueError("生成时长必须是大于 0 的有限数值")
     source_seconds = 0.0 if audio is None else audio[0].shape[-1] / audio[1]
-    source_frames = math.floor(source_seconds * engine.target_sample_rate / engine.downsample_rate)
+    source_frames = source_latent_frames(engine, audio)
     if audio is not None and source_frames < 1:
         minimum_seconds = engine.downsample_rate / engine.target_sample_rate
         raise ValueError(f"输入音频过短，至少需要 {minimum_seconds:.3f}s")
+    if not math.isfinite(target_seconds) or target_seconds <= 0:
+        raise ValueError("生成时长必须是大于 0 的有限数值")
     target_frames = max(1, math.ceil(target_seconds * engine.target_sample_rate / engine.downsample_rate))
     max_frames = int(MAX_SEQUENCE_SECONDS * engine.target_sample_rate / engine.downsample_rate)
     if source_frames + target_frames > max_frames:

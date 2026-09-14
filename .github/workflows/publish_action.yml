@@ -73,15 +73,15 @@ jobs:
             --url "${api}/publishers/${publisher}/nodes/${node}/versions/${current_id}" \
             --header "${auth}" \
             --header "Content-Type: application/json" \
-            --data '{"changelog":"Hardens the native nodes with correct CPU and multi-GPU model lifecycle, extra_model_paths discovery, pinned model downloads, strict checkpoint validation, and workflows compatible with ComfyUI 0.23 and later.","deprecated":false}'
+            --data '{"changelog":"Fixes source-aligned duration for editing, enhancement, and separation tasks; emits canonical pitch, volume, and speed instructions; prevents cross-task prompt contamination; and preserves bf16/fp16 Qwen weights to reduce RAM and VRAM use.","deprecated":false}'
 
-          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0; do
+          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0 2.0.1; do
             old_id="$(get_version_id "${old_version}")"
             if [[ -n "${old_id}" ]]; then
               curl --fail-with-body --retry 3 --request PUT \
                 --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
                 --header "${auth}" \
                 --header "Content-Type: application/json" \
-                --data '{"changelog":"Superseded by native release 2.0.1. Update to the latest version.","deprecated":true}'
+                --data '{"changelog":"Superseded by native release 2.0.2. Update to the latest version.","deprecated":true}'
             fi
           done

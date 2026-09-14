@@ -23,7 +23,7 @@ Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing
 
 ### ComfyUI Manager
 
-Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.1 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.2 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
 
 ### Git
 
@@ -77,9 +77,11 @@ Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require abou
 3. Select a task and enter its content in **AuK Generate / Edit**. Connect ComfyUI `Load Audio` for tasks that require source or reference audio.
 4. Queue the workflow. AuK-Flash always uses NFE=4 and CFG=0; Base uses the advanced sampling controls.
 
+Pitch, volume, emotion, timbre, lyric, de-accent, whisper, enhancement, and separation tasks automatically produce source-aligned output, following the model's documented behavior. Speed editing calculates its output duration as source duration divided by the selected multiplier. The target-duration widget is ignored for those tasks. Instruct TTS, voice cloning, speech-content editing, and nonverbal editing use the manual target duration. Speed supports `0.5`, `0.75`, `1.25`, `1.5`, or `2.0`; pitch uses `+1/+2/+3` or `-1/-2/-3` semitones, and volume uses `+5/+10/+15` or `-5/-10/-15` dB.
+
 Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
 
-> Version 2.0.1 is the current native release. It replaces the old HTTP bridge and fixes model-path discovery, CPU and multi-GPU model lifecycle, checkpoint validation, and workflow compatibility. Replace workflows containing `AuKLocalConnection` or `AuKLocalGenerateEdit`, and update from 2.0.0.
+> Version 2.0.2 is the current native release. It fixes editing tasks being truncated to the default three seconds, ambiguous pitch/volume direction, cross-task prompt contamination from the secondary-field default, and bf16/fp16 Qwen weights being expanded to fp32. Replace workflows containing `AuKLocalConnection` or `AuKLocalGenerateEdit`, and update from 2.0.1 or earlier.
 
 ## Standalone local package
 

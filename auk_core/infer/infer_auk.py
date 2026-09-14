@@ -113,7 +113,10 @@ class AukInfer:
             num_channels=self.latent_dim,
             **schedule_config,
         )
-        model = model.to(torch.float32)
+        # Keep Qwen in the user-selected dtype. The newly constructed AuK
+        # transformer and layer-fusion parameters are already float32, and
+        # runtime autocast chooses their compute dtype on CUDA. Converting the
+        # whole container here would silently expand bf16/fp16 Qwen to fp32.
 
         # --- load EMA weights (strip "ema_model." prefix; text_encoder.* comes from Qwen snapshot) ---
         self._load_ema_weights(model, ckpt_path)

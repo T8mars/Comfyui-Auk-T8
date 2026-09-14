@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -14,9 +15,21 @@ from comfy.utils import ProgressBar
 from comfy_api.v0_0_2 import ComfyExtension, io
 from omegaconf import OmegaConf
 
-from .runtime import AuKEngine, MAX_SEQUENCE_SECONDS, QWEN_AUDIO_SAMPLE_RATE, validate_sequence_duration
-from .task_templates import TASK_BY_LABEL, TASKS, build_instruction
-
+from .runtime import (
+    MAX_SEQUENCE_SECONDS,
+    QWEN_AUDIO_SAMPLE_RATE,
+    AuKEngine,
+    latent_frames_to_seconds,
+    source_aligned_seconds,
+    source_latent_frames,
+    validate_sequence_duration,
+)
+from .task_templates import (
+    TASK_BY_LABEL,
+    TASKS,
+    build_instruction,
+    parse_speed_multiplier,
+)
 
 logger = logging.getLogger("ComfyUI-AuK-T8")
 AUK_ENGINE = io.Custom("AUK_ENGINE")
@@ -152,6 +165,26 @@ def normalize_audio(audio: dict[str, Any] | None) -> tuple[torch.Tensor, int] | 
     return waveform.contiguous(), sample_rate
 
 
+def resolve_generation_seconds(
+    engine: AuKEngine,
+    duration_strategy: str,
+    audio: tuple[torch.Tensor, int] | None,
+    requested_seconds: float,
+    primary: str,
+) -> float:
+    """Resolve the output duration while preserving source length for fixed-length edits."""
+    if duration_strategy == "source":
+        if audio is None:
+            raise ValueError("等长任务需要输入音频")
+        return source_aligned_seconds(engine, audio)
+    if duration_strategy == "speed":
+        if audio is None:
+            raise ValueError("速度编辑需要输入音频")
+        target_frames = math.ceil(source_latent_frames(engine, audio) / parse_speed_multiplier(primary))
+        return latent_frames_to_seconds(engine, target_frames)
+    return float(requested_seconds)
+
+
 class AuKModelLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -205,20 +238,25 @@ class AuKGenerateEdit(io.ComfyNode):
             node_id="AuKGenerateEdit",
             display_name="AuK 生成 / 编辑",
             category="AuK · T8star-Aix",
-            description="在 ComfyUI 进程内执行 AuK 的 16 类语音生成、编辑、增强和分离任务。",
+            description="在 ComfyUI 进程内执行 AuK 的 16 类任务；等长与变速编辑会自动计算输出时长。",
             inputs=[
                 AUK_ENGINE.Input("engine", display_name="AuK 模型"),
                 io.Combo.Input("task", display_name="任务", options=[task.label for task in TASKS], default=TASKS[0].label),
-                io.String.Input("primary", display_name="主要内容", multiline=True, default="你好，欢迎使用 AuK。"),
+                io.String.Input(
+                    "primary",
+                    display_name="主要内容（变速填倍率；音高/音量填带符号数值）",
+                    multiline=True,
+                    default="你好，欢迎使用 AuK。",
+                ),
                 io.String.Input(
                     "secondary",
                     display_name="声音描述 / 附加要求",
                     multiline=True,
-                    default="自然、清晰、温暖",
+                    default="",
                 ),
                 io.Float.Input(
                     "generation_seconds",
-                    display_name="生成时长（秒）",
+                    display_name="目标时长（秒；编辑任务可自动）",
                     default=3.0,
                     min=0.2,
                     max=MAX_SEQUENCE_SECONDS,
@@ -281,7 +319,16 @@ class AuKGenerateEdit(io.ComfyNode):
         if template.needs_audio and audio is None:
             raise ValueError(f"“{task}”需要连接输入或参考音频")
         instruction = build_instruction(template.key, primary, secondary)
-        validate_sequence_duration(engine, audio, float(generation_seconds))
+        requested_seconds = float(generation_seconds)
+        validate_sequence_duration(engine, None, requested_seconds)
+        target_seconds = resolve_generation_seconds(
+            engine,
+            template.duration_strategy,
+            audio,
+            requested_seconds,
+            primary,
+        )
+        validate_sequence_duration(engine, audio, target_seconds)
         if engine.is_flash:
             nfe_steps, cfg_strength, sway_sampling_coef = 4, 0.0, -1.0
 
@@ -310,7 +357,7 @@ class AuKGenerateEdit(io.ComfyNode):
         waveform, sample_rate = engine.generate(
             messages,
             audio,
-            float(generation_seconds),
+            target_seconds,
             int(nfe_steps),
             float(cfg_strength),
             float(sway_sampling_coef),
@@ -325,7 +372,9 @@ class AuKGenerateEdit(io.ComfyNode):
             "dtype": engine.dtype,
             "task": template.key,
             "seed": int(seed),
-            "generation_seconds": float(generation_seconds),
+            "generation_seconds": target_seconds,
+            "requested_generation_seconds": requested_seconds,
+            "duration_strategy": template.duration_strategy,
             "sample_rate": int(sample_rate),
             "actual_output_seconds": waveform.shape[-1] / int(sample_rate),
             "nfe_steps": int(nfe_steps),
