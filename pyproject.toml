@@ -1,11 +1,19 @@
 [project]
 name = "auk-t8"
-version = "1.0.2"
-description = "ComfyUI V3 bridge nodes for AuK Local speech generation and editing."
+version = "2.0.0"
+description = "Native ComfyUI V3 nodes for AuK speech generation and editing."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-dependencies = []
+dependencies = [
+    "transformers>=4.52,<5",
+    "qwen-omni-utils>=0.0.9",
+    "omegaconf>=2.3,<3",
+    "torchdiffeq>=0.2.5",
+    "x-transformers>=1.31.14,<3",
+    "safetensors>=0.4",
+    "accelerate>=0.33",
+]
 classifiers = [
     "Operating System :: Microsoft :: Windows",
 ]
@@ -19,7 +27,11 @@ Documentation = "https://github.com/T8mars/Comfyui-Auk-T8#readme"
 
 [tool.comfy]
 PublisherId = "t8star"
-DisplayName = "AuK Local · T8star-Aix"
+DisplayName = "AuK · T8star-Aix"
 Icon = "https://raw.githubusercontent.com/T8mars/Comfyui-Auk-T8/main/assets/icon.svg"
-requires-comfyui = ">=0.3.48"
+requires-comfyui = ">=0.23.0"
 includes = ["example_workflows"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--confcutdir=tests"

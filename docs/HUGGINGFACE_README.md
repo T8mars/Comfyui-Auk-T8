@@ -13,9 +13,9 @@ tags:
 
 # AuK-Comfy model mirror / 模型镜像
 
-This repository contains the model files used by the **AuK Local · T8star-Aix** ComfyUI integration. The custom nodes and bilingual setup guide are at [T8mars/Comfyui-Auk-T8](https://github.com/T8mars/Comfyui-Auk-T8). The single Windows integration package is available [here](https://pan.quark.cn/s/264edb7e36bd).
+This repository contains the models used by the independent [AuK · T8star-Aix native ComfyUI nodes](https://github.com/T8mars/Comfyui-Auk-T8) and by the separate [AuK Local one-click package](https://pan.quark.cn/s/264edb7e36bd).
 
-本仓库保存 **AuK Local · T8star-Aix** ComfyUI 整合包所使用的模型文件。节点代码和中英文教程位于 [T8mars/Comfyui-Auk-T8](https://github.com/T8mars/Comfyui-Auk-T8)，唯一的 Windows 一键整合包在[这里下载](https://pan.quark.cn/s/264edb7e36bd)。
+本仓库保存独立的 [AuK · T8star-Aix ComfyUI 原生节点](https://github.com/T8mars/Comfyui-Auk-T8)与单独的 [AuK Local 一键整合包](https://pan.quark.cn/s/264edb7e36bd)所需模型。两者可以分别安装和运行。
 
 ## Contents / 内容
 
@@ -23,25 +23,20 @@ This repository contains the model files used by the **AuK Local · T8star-Aix**
 | --- | --- | --- | --- |
 | `AuK-Flash` | Four-step speech generation / 四步快速语音生成 | [tencent/AuK-Flash](https://huggingface.co/tencent/AuK-Flash) | `575b92f0895f75180bf2cbd35f2e176c5732b8ed` |
 | `AuK` | Base speech generation and editing / 基础语音生成与编辑 | [tencent/AuK](https://huggingface.co/tencent/AuK) | `790742b71a4430120daf2b2099192abae449eb9f` |
-| `Qwen2.5-Omni-3B` | Prompt understanding / 指令理解 | [Qwen/Qwen2.5-Omni-3B](https://huggingface.co/Qwen/Qwen2.5-Omni-3B) | `f75b40e3da2003cdd6e1829b1f420ca70797c34e` |
+| `Qwen2.5-Omni-3B` | Multimodal instruction encoder / 多模态指令编码器 | [Qwen/Qwen2.5-Omni-3B](https://huggingface.co/Qwen/Qwen2.5-Omni-3B) | `f75b40e3da2003cdd6e1829b1f420ca70797c34e` |
 
-`MODEL_MANIFEST.json` records the expected size and SHA-256 of every file required by the integration package. Each model folder includes the upstream license supplied with that model.
+## Native ComfyUI layout / 原生节点目录
 
-`MODEL_MANIFEST.json` 记录整合包所需文件的大小和 SHA-256。每个模型目录均保留上游随模型提供的许可文件。
+Copy the three folders into `ComfyUI/models/auk`. The native node loads them directly inside ComfyUI and does not require port 7860 or a token.
 
-## Use with ComfyUI / 配合 ComfyUI 使用
-
-Install the node from ComfyUI Manager by searching for **AuK Local · T8star-Aix**, or clone [the GitHub repository](https://github.com/T8mars/Comfyui-Auk-T8). The published node talks to the isolated service included in the integration package; it does not load these models inside the ComfyUI Python process.
-
-在 ComfyUI Manager 中搜索 **AuK Local · T8star-Aix** 安装，或克隆 [GitHub 节点仓库](https://github.com/T8mars/Comfyui-Auk-T8)。该节点连接整合包内的独立服务，不会在 ComfyUI 的 Python 进程里直接加载模型。
+将三个模型目录复制到 `ComfyUI/models/auk`。原生节点在 ComfyUI 中直接加载，不需要 7860 服务或令牌。
 
 ## Links / 社媒与资源
 
+- [GitHub nodes / GitHub 节点](https://github.com/T8mars/Comfyui-Auk-T8)
 - [Bilibili / B站](https://space.bilibili.com/385085361)
 - [YouTube](https://www.youtube.com/@T8star-Aix/)
 - [API](https://api.seedance.nz/sign-up?aff=5f4w)
 - [Online AI apps / 在线 AI 应用](https://www.runninghub.ai/zh-cn/user-center/1907375370302308353/userPost?inviteCode=rh-v1121)
-- [ComfyUI integration package / ComfyUI 整合包](https://pan.quark.cn/s/264edb7e36bd)
-- [GitHub nodes / GitHub 节点](https://github.com/T8mars/Comfyui-Auk-T8)
-- [This model repository / 本模型仓库](https://huggingface.co/t8star/Auk-Comfy)
+- [Standalone local package / 独立本地整合包](https://pan.quark.cn/s/264edb7e36bd)
 - [Hugging Face profile / Hugging Face 主页](https://huggingface.co/t8star)

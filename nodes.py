@@ -1,261 +1,193 @@
 from __future__ import annotations
 
-import base64
-import io as bytes_io
 import json
+import logging
 import time
-import urllib.error
-import urllib.parse
-import urllib.request
-import uuid
 from pathlib import Path
 from typing import Any
 
+import folder_paths
 import torch
 import torchaudio
+from comfy import model_management
+from comfy.utils import ProgressBar
 from comfy_api.v0_0_2 import ComfyExtension, io
+from omegaconf import OmegaConf
+
+from .runtime import AuKEngine, MAX_SEQUENCE_SECONDS, QWEN_AUDIO_SAMPLE_RATE, validate_sequence_duration
+from .task_templates import TASK_BY_LABEL, TASKS, build_instruction
 
 
-PROTOCOL_VERSION = "1.0"
-AUK_LOCAL_CONNECTION = io.Custom("AUK_LOCAL_CONNECTION")
-TASK_OPTIONS = [
-    "描述生成语音",
-    "参考声音克隆",
-    "语音文字编辑",
-    "歌词编辑",
-    "音高编辑",
-    "速度编辑",
-    "音量编辑",
-    "情绪编辑",
-    "音色编辑",
-    "去口音",
-    "非语言声音编辑",
-    "耳语转换",
-    "语音增强",
-    "说话人分离",
-    "音乐人声提取",
-    "指定说话人提取",
-]
-TASK_KEYS = [
-    "instruct_tts",
-    "zero_shot_tts",
-    "content_edit",
-    "lyric_edit",
-    "pitch",
-    "speed",
-    "volume",
-    "emotion",
-    "timbre",
-    "deaccent",
-    "nonverbal",
-    "whisper",
-    "enhance",
-    "speech_separate",
-    "music_separate",
-    "target_speaker",
-]
+logger = logging.getLogger("ComfyUI-AuK-T8")
+AUK_ENGINE = io.Custom("AUK_ENGINE")
+MODEL_ROOT = Path(folder_paths.models_dir) / "auk"
+folder_paths.add_model_folder_path("auk", str(MODEL_ROOT), is_default=True)
+
+MODEL_VARIANTS = {
+    "AuK-Flash": ("AuK-Flash", "auk_flash.safetensors"),
+    "AuK Base": ("AuK", "auk_base.safetensors"),
+}
 
 
-class HttpResponseError(RuntimeError):
-    def __init__(self, status_code: int, detail: str):
-        super().__init__(f"AuK Local HTTP {status_code}: {detail}")
-        self.status_code = status_code
+def load_manifest() -> dict[str, Any]:
+    return json.loads(Path(__file__).with_name("MODEL_MANIFEST.json").read_text(encoding="utf-8"))
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "AuK Local 不接受 HTTP 重定向", headers, fp)
-
-
-def validate_loopback_url(base_url: str) -> str:
-    candidate = str(base_url or "").rstrip("/")
-    try:
-        parsed = urllib.parse.urlsplit(candidate)
-        _ = parsed.port
-    except ValueError as exc:
-        raise ValueError("AuK Local 服务地址无效") from exc
-    if (
-        parsed.scheme != "http"
-        or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.path not in {"", "/"}
-        or parsed.query
-        or parsed.fragment
-    ):
-        raise ValueError("AuK Local 服务地址只能是本机 loopback HTTP 地址")
-    return candidate
-
-
-def resolve_token_file(setting: str) -> Path:
-    if setting.strip():
-        return Path(setting).expanduser().resolve()
-    config_file = Path(__file__).with_name("auk-local-config.json")
-    if config_file.is_file():
-        config = json.loads(config_file.read_text(encoding="utf-8"))
-        configured = Path(config["token_file"]).expanduser()
-        if not configured.is_absolute():
-            configured = config_file.parent / configured
-        return configured.resolve()
-    raise ValueError("找不到 AuK Local 服务令牌；请运行整合包里的“安装ComfyUI节点.cmd”")
-
-
-class Client:
-    def __init__(self, base_url: str, token_file: Path):
-        self.base_url = validate_loopback_url(base_url)
-        self.token_file = token_file
-        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
-
-    def _headers(self) -> dict[str, str]:
-        return {"Content-Type": "application/json", "X-AuK-Token": self.token_file.read_text(encoding="utf-8").strip()}
-
-    def json_request(self, method: str, path: str, payload: dict[str, Any] | None = None, timeout: float = 30):
-        request = urllib.request.Request(
-            self.base_url + path,
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None,
-            method=method,
-            headers=self._headers(),
+def resolve_model_files(model_variant: str) -> tuple[Path, Path, Path]:
+    if model_variant not in MODEL_VARIANTS:
+        raise ValueError(f"未知模型：{model_variant}")
+    model_directory, checkpoint_name = MODEL_VARIANTS[model_variant]
+    qwen_directory = "Qwen2.5-Omni-3B"
+    manifest = load_manifest()["models"]
+    problems: list[str] = []
+    for key, directory_name in ((model_directory, model_directory), (qwen_directory, qwen_directory)):
+        directory = MODEL_ROOT / directory_name
+        for filename, details in manifest[key]["files"].items():
+            path = directory / filename
+            if not path.is_file():
+                problems.append(f"缺少 {path}")
+            elif path.stat().st_size != int(details["size"]):
+                problems.append(f"大小不符 {path}")
+    if problems:
+        preview = "；".join(problems[:5])
+        if len(problems) > 5:
+            preview += f"；另有 {len(problems) - 5} 个文件"
+        download_variant = "flash" if model_directory == "AuK-Flash" else "base"
+        raise FileNotFoundError(
+            f"AuK 模型不完整：{preview}。请把 Hugging Face t8star/Auk-Comfy 中的目录放到 {MODEL_ROOT}，"
+            f"或在节点目录运行 python download_models.py --variant {download_variant}。"
         )
-        try:
-            with self._opener.open(request, timeout=timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise HttpResponseError(exc.code, detail) from exc
-
-    def health(self):
-        with self._opener.open(self.base_url + "/api/v1/health", timeout=5) as response:
-            health = json.loads(response.read().decode("utf-8"))
-        if str(health.get("protocol_version", "")).split(".")[0] != PROTOCOL_VERSION.split(".")[0]:
-            raise RuntimeError(f"协议不兼容：节点 {PROTOCOL_VERSION}，服务 {health.get('protocol_version')}")
-        return health
-
-    def download(self, path: str, timeout: float = 60) -> bytes:
-        request = urllib.request.Request(self.base_url + path, headers=self._headers())
-        with self._opener.open(request, timeout=timeout) as response:
-            return response.read()
+    checkpoint = MODEL_ROOT / model_directory / checkpoint_name
+    config = checkpoint.parent / "config.yaml"
+    qwen = MODEL_ROOT / qwen_directory
+    return checkpoint, config, qwen
 
 
-def submit_with_recovery(client: Client, request_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    last_error: BaseException | None = None
-    for attempt in range(3):
-        try:
-            return client.json_request("POST", "/api/v1/tasks", payload)
-        except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
-            last_error = exc
-            try:
-                return client.json_request("GET", f"/api/v1/tasks/{request_id}", timeout=10)
-            except HttpResponseError as status_error:
-                if status_error.status_code != 404:
-                    raise
-            except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
-                pass
-            if attempt < 2:
-                time.sleep(0.5 * (attempt + 1))
-    raise RuntimeError(f"提交 AuK 任务后无法确认服务状态：{last_error}") from last_error
+def resolve_device(setting: str) -> torch.device:
+    if setting == "auto":
+        device = model_management.get_torch_device()
+    else:
+        device = torch.device(setting)
+    if device.type not in {"cuda", "cpu"}:
+        raise ValueError(f"AuK 当前只支持 CUDA 或 CPU，ComfyUI 当前设备是 {device}")
+    if device.type == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError("选择了 CUDA，但当前 PyTorch 无法使用 CUDA")
+        index = torch.cuda.current_device() if device.index is None else device.index
+        if index >= torch.cuda.device_count():
+            raise ValueError(f"CUDA 设备不存在：cuda:{index}")
+        return torch.device("cuda", index)
+    return torch.device("cpu")
 
 
-class AuKLocalConnection(io.ComfyNode):
-    @classmethod
-    def define_schema(cls) -> io.Schema:
-        return io.Schema(
-            node_id="AuKLocalConnection",
-            display_name="AuK Local 连接",
-            category="AuK Local",
-            description="连接独立的 AuK Local 本机服务；不会在 ComfyUI 进程加载模型。",
-            inputs=[
-                io.String.Input("service_url", default="http://127.0.0.1:7860"),
-                io.String.Input(
-                    "token_file",
-                    default="",
-                    optional=True,
-                    advanced=True,
-                    tooltip="留空时读取安装脚本生成的本地配置；工作流不保存令牌内容。",
-                ),
-                io.Combo.Input("model", options=["flash", "base"], default="flash"),
-                io.Boolean.Input("cpu_offload", default=True, optional=True),
-                io.Boolean.Input("keep_loaded", default=False, optional=True, advanced=True),
-            ],
-            outputs=[AUK_LOCAL_CONNECTION.Output("connection", display_name="连接")],
-        )
-
-    @classmethod
-    def execute(
-        cls,
-        service_url: str,
-        token_file: str = "",
-        model: str = "flash",
-        cpu_offload: bool = True,
-        keep_loaded: bool = False,
-    ) -> io.NodeOutput:
-        token_path = resolve_token_file(token_file)
-        client = Client(service_url, token_path)
-        client.health()
-        return io.NodeOutput(
-            {
-                "service_url": service_url.rstrip("/"),
-                "token_file": str(token_path),
-                "model": model,
-                "cpu_offload": bool(cpu_offload),
-                "keep_loaded": bool(keep_loaded),
-            }
-        )
+def resolve_dtype(setting: str, device: torch.device) -> str:
+    if setting == "auto":
+        if device.type == "cpu":
+            return "fp32"
+        return "bf16" if torch.cuda.is_bf16_supported() else "fp16"
+    if setting not in {"bf16", "fp16", "fp32"}:
+        raise ValueError(f"不支持的数据类型：{setting}")
+    if device.type == "cpu" and setting != "fp32":
+        raise ValueError("CPU 推理必须使用 fp32")
+    if device.type == "cuda" and setting == "bf16" and not torch.cuda.is_bf16_supported():
+        raise ValueError("当前 CUDA 设备不支持 bf16，请选择 fp16")
+    return setting
 
 
-def normalize_audio(audio: dict | None) -> tuple[dict[str, Any] | None, float]:
+def normalize_audio(audio: dict[str, Any] | None) -> tuple[torch.Tensor, int] | None:
     if audio is None:
-        return None, 0.0
-    waveform = audio.get("waveform")
-    sample_rate = audio.get("sample_rate")
-    if not torch.is_tensor(waveform) or waveform.ndim != 3 or waveform.shape[0] != 1:
-        raise ValueError("输入 AUDIO 必须是 [1, channels, samples]")
+        return None
+    if not isinstance(audio, dict) or "waveform" not in audio or "sample_rate" not in audio:
+        raise ValueError("input_audio 必须是 ComfyUI AUDIO")
+    waveform = audio["waveform"]
+    sample_rate = audio["sample_rate"]
+    if not torch.is_tensor(waveform) or waveform.ndim != 3:
+        shape = tuple(waveform.shape) if torch.is_tensor(waveform) else type(waveform).__name__
+        raise ValueError(f"input_audio waveform 必须是 [B, C, T]，当前为 {shape}")
+    if waveform.shape[0] != 1:
+        raise ValueError(f"AuK 每次只接受一段音频，当前 batch={waveform.shape[0]}")
+    if waveform.shape[1] < 1 or waveform.shape[2] < 1:
+        raise ValueError("输入音频为空")
     if not isinstance(sample_rate, int) or sample_rate <= 0:
-        raise ValueError("输入采样率无效")
+        raise ValueError(f"输入采样率无效：{sample_rate!r}")
     waveform = waveform[0].detach().to(device="cpu", dtype=torch.float32)
+    if not torch.isfinite(waveform).all():
+        raise ValueError("输入音频包含 NaN 或 Inf")
     if waveform.shape[0] > 1:
         waveform = waveform.mean(dim=0, keepdim=True)
-    if waveform.numel() == 0 or not torch.isfinite(waveform).all():
-        raise ValueError("输入音频为空或含 NaN/Inf")
-    mono = waveform.squeeze(0).contiguous().numpy().astype("<f4", copy=False)
-    return (
-        {
-            "encoding": "f32le",
-            "sample_rate": sample_rate,
-            "channels": 1,
-            "frames": int(mono.size),
-            "data": base64.b64encode(mono.tobytes()).decode("ascii"),
-        },
-        mono.size / sample_rate,
-    )
+    return waveform.contiguous(), sample_rate
 
 
-def check_interrupted() -> None:
-    try:
-        from comfy import model_management
+class AuKModelLoader(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        devices = ["auto"] + [f"cuda:{index}" for index in range(torch.cuda.device_count())] + ["cpu"]
+        return io.Schema(
+            node_id="AuKModelLoader",
+            display_name="AuK 模型加载器",
+            category="AuK · T8star-Aix",
+            description="直接在 ComfyUI 内加载 AuK，不需要启动 7860 服务。模型由 ComfyUI 分阶段管理显存。",
+            inputs=[
+                io.Combo.Input("model_variant", display_name="模型", options=list(MODEL_VARIANTS), default="AuK-Flash"),
+                io.Combo.Input("device", display_name="设备", options=devices, default="auto", advanced=True),
+                io.Combo.Input(
+                    "dtype",
+                    display_name="精度",
+                    options=["auto", "bf16", "fp16", "fp32"],
+                    default="auto",
+                    advanced=True,
+                ),
+            ],
+            outputs=[AUK_ENGINE.Output("engine", display_name="AuK 模型")],
+        )
 
-        model_management.throw_exception_if_processing_interrupted()
-    except ModuleNotFoundError:
-        return
+    @classmethod
+    def execute(cls, model_variant: str, device: str = "auto", dtype: str = "auto") -> io.NodeOutput:
+        checkpoint, config, qwen = resolve_model_files(model_variant)
+        model_config = OmegaConf.load(config)
+        expected_name = MODEL_VARIANTS[model_variant][0]
+        if str(model_config.model.get("name", "")) != expected_name:
+            raise ValueError(f"配置文件模型类型错误：{config}")
+        resolved_device = resolve_device(device)
+        resolved_dtype = resolve_dtype(dtype, resolved_device)
+        logger.info("Loading %s on %s (%s)", model_variant, resolved_device, resolved_dtype)
+        try:
+            engine = AuKEngine(checkpoint, config, qwen, resolved_device, resolved_dtype)
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                f"缺少 AuK 运行依赖 {exc.name!r}；请用 ComfyUI 的 Python 执行 pip install -r requirements.txt"
+            ) from exc
+        engine.model_variant = model_variant
+        manifest = load_manifest()["models"]
+        engine.model_revision = manifest[expected_name]["revision"]
+        engine.qwen_revision = manifest["Qwen2.5-Omni-3B"]["revision"]
+        return io.NodeOutput(engine)
 
 
-class AuKLocalGenerateEdit(io.ComfyNode):
+class AuKGenerateEdit(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
-            node_id="AuKLocalGenerateEdit",
-            display_name="AuK Local 生成 / 编辑",
-            category="AuK Local",
-            description="通过本机服务执行 AuK 的16类生成、编辑、增强和分离任务。",
+            node_id="AuKGenerateEdit",
+            display_name="AuK 生成 / 编辑",
+            category="AuK · T8star-Aix",
+            description="在 ComfyUI 进程内执行 AuK 的 16 类语音生成、编辑、增强和分离任务。",
             inputs=[
-                AUK_LOCAL_CONNECTION.Input("connection"),
-                io.Combo.Input("task", options=TASK_OPTIONS, default=TASK_OPTIONS[0]),
+                AUK_ENGINE.Input("engine", display_name="AuK 模型"),
+                io.Combo.Input("task", display_name="任务", options=[task.label for task in TASKS], default=TASKS[0].label),
                 io.String.Input("primary", display_name="主要内容", multiline=True, default="你好，欢迎使用 AuK。"),
-                io.String.Input("secondary", display_name="声音描述 / 附加要求", multiline=True, default="自然、清晰、温暖"),
+                io.String.Input(
+                    "secondary",
+                    display_name="声音描述 / 附加要求",
+                    multiline=True,
+                    default="自然、清晰、温暖",
+                ),
                 io.Float.Input(
                     "generation_seconds",
+                    display_name="生成时长（秒）",
                     default=3.0,
                     min=0.2,
-                    max=30.0,
+                    max=MAX_SEQUENCE_SECONDS,
                     step=0.1,
                     display_mode=io.NumberDisplay.slider,
                 ),
@@ -266,19 +198,26 @@ class AuKLocalGenerateEdit(io.ComfyNode):
                     max=0x7FFFFFFFFFFFFFFF,
                     control_after_generate=io.ControlAfterGenerate.fixed,
                 ),
-                io.Audio.Input("input_audio", optional=True),
-                io.Int.Input(
-                    "refresh",
-                    default=0,
-                    min=0,
-                    max=0x7FFFFFFF,
-                    control_after_generate=io.ControlAfterGenerate.increment,
+                io.Audio.Input("input_audio", display_name="输入 / 参考音频", optional=True),
+                io.Int.Input("nfe_steps", display_name="NFE 步数", default=32, min=4, max=64, advanced=True),
+                io.Float.Input(
+                    "cfg_strength",
+                    display_name="CFG 强度",
+                    default=2.0,
+                    min=0.0,
+                    max=5.0,
+                    step=0.1,
                     advanced=True,
-                    tooltip="递增时强制创建新任务；不影响模型随机种子。",
                 ),
-                io.Int.Input("nfe_steps", default=32, min=4, max=64, advanced=True),
-                io.Float.Input("cfg_strength", default=2.0, min=0.0, max=5.0, step=0.1, advanced=True),
-                io.Float.Input("sway_sampling_coef", default=-1.0, min=-1.0, max=1.0, step=0.1, advanced=True),
+                io.Float.Input(
+                    "sway_sampling_coef",
+                    display_name="Sway 系数",
+                    default=-1.0,
+                    min=-1.0,
+                    max=1.0,
+                    step=0.1,
+                    advanced=True,
+                ),
             ],
             outputs=[
                 io.Audio.Output("generated_audio", display_name="生成音频"),
@@ -290,94 +229,90 @@ class AuKLocalGenerateEdit(io.ComfyNode):
     @classmethod
     def execute(
         cls,
-        connection: dict[str, Any],
+        engine: AuKEngine,
         task: str,
         primary: str,
         secondary: str,
         generation_seconds: float,
         seed: int,
-        input_audio: dict | None = None,
-        refresh: int = 0,
+        input_audio: dict[str, Any] | None = None,
         nfe_steps: int = 32,
         cfg_strength: float = 2.0,
         sway_sampling_coef: float = -1.0,
     ) -> io.NodeOutput:
-        if task not in TASK_OPTIONS:
+        if task not in TASK_BY_LABEL:
             raise ValueError(f"未知任务：{task}")
-        task_key = TASK_KEYS[TASK_OPTIONS.index(task)]
-        model = connection["model"]
-        if model == "flash":
+        template = TASK_BY_LABEL[task]
+        audio = normalize_audio(None if not template.needs_audio else input_audio)
+        if template.needs_audio and audio is None:
+            raise ValueError(f"“{task}”需要连接输入或参考音频")
+        instruction = build_instruction(template.key, primary, secondary)
+        validate_sequence_duration(engine, audio, float(generation_seconds))
+        if engine.is_flash:
             nfe_steps, cfg_strength, sway_sampling_coef = 4, 0.0, -1.0
-        encoded_audio, source_seconds = normalize_audio(None if task_key == "instruct_tts" else input_audio)
-        if source_seconds + float(generation_seconds) > 30.0 + 1e-9:
-            raise ValueError(
-                f"输入 {source_seconds:.2f}s + 输出 {generation_seconds:.2f}s 超过 30s 限制"
-            )
-        client = Client(connection["service_url"], Path(connection["token_file"]))
-        client.health()
-        payload = {
-            "task_key": task_key,
-            "primary": primary,
-            "secondary": secondary,
-            "generation_seconds": float(generation_seconds),
-            "model": model,
+
+        model_instruction = instruction if audio is not None else instruction + "|<no_prompt_audio>|"
+        content: list[dict[str, Any]] = [{"type": "text", "text": model_instruction}]
+        if audio is not None:
+            waveform, sample_rate = audio
+            qwen_waveform = waveform
+            if sample_rate != QWEN_AUDIO_SAMPLE_RATE:
+                qwen_waveform = torchaudio.functional.resample(waveform, sample_rate, QWEN_AUDIO_SAMPLE_RATE)
+            content.append({"type": "audio", "audio": qwen_waveform.squeeze(0).contiguous().numpy()})
+        messages = [{"role": "user", "content": content}]
+
+        progress = ProgressBar(4)
+        phase_count = 0
+
+        def phase_callback(_phase: str) -> None:
+            nonlocal phase_count
+            phase_count += 1
+            progress.update_absolute(min(phase_count, 4))
+
+        def interrupt_callback() -> None:
+            model_management.throw_exception_if_processing_interrupted()
+
+        started = time.perf_counter()
+        waveform, sample_rate = engine.generate(
+            messages,
+            audio,
+            float(generation_seconds),
+            int(nfe_steps),
+            float(cfg_strength),
+            float(sway_sampling_coef),
+            int(seed),
+            interrupt_callback,
+            phase_callback,
+        )
+        progress.update_absolute(4)
+        metadata = {
+            "model": engine.model_variant,
+            "device": str(engine.device),
+            "dtype": engine.dtype,
+            "task": template.key,
             "seed": int(seed),
+            "generation_seconds": float(generation_seconds),
+            "sample_rate": int(sample_rate),
+            "actual_output_seconds": waveform.shape[-1] / int(sample_rate),
             "nfe_steps": int(nfe_steps),
             "cfg_strength": float(cfg_strength),
             "sway_sampling_coef": float(sway_sampling_coef),
-            "cpu_offload": connection["cpu_offload"],
-            "keep_loaded": connection["keep_loaded"],
-            "client": "comfyui",
-            "audio": encoded_audio,
+            "elapsed_seconds": round(time.perf_counter() - started, 3),
+            "runtime": "native_comfyui",
+            "model_revision": engine.model_revision,
+            "qwen_revision": engine.qwen_revision,
         }
-        # One node execution owns one remote task. Network retries below keep this
-        # ID, while separate workflow executions cannot cancel or reuse each other.
-        request_id = str(uuid.uuid4())
-        payload["request_id"] = request_id
-        try:
-            submitted = submit_with_recovery(client, request_id, payload)
-            disconnected_at = None
-            while submitted["state"] not in {"succeeded", "failed", "cancelled", "interrupted"}:
-                scheduler = submitted.get("scheduler") or {}
-                if (
-                    scheduler.get("state") in {"paused", "stopping", "stopped"}
-                    or scheduler.get("dispatcher_alive") is False
-                ):
-                    detail = scheduler.get("error") or "任务调度不可用"
-                    raise RuntimeError(
-                        f"AuK Local 任务 {request_id} 已暂停：{detail}。请检查服务诊断，恢复后重启服务并重试。"
-                    )
-                check_interrupted()
-                time.sleep(0.4)
-                try:
-                    submitted = client.json_request("GET", f"/api/v1/tasks/{request_id}", timeout=10)
-                    disconnected_at = None
-                except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as exc:
-                    disconnected_at = disconnected_at or time.monotonic()
-                    if time.monotonic() - disconnected_at > 30:
-                        raise RuntimeError("AuK Local 服务断线超过 30 秒") from exc
-        except BaseException:  # Comfy interrupts also require remote task cancellation
-            try:
-                client.json_request("POST", f"/api/v1/tasks/{request_id}/cancel", {}, timeout=5)
-            except Exception:  # noqa: BLE001, S110 - preserve the original failure if service cancellation fails
-                pass
-            raise
-        if submitted["state"] != "succeeded":
-            raise RuntimeError(f"AuK任务{submitted['state']}：{submitted.get('error') or ''}")
-        wav_bytes = client.download(f"/api/v1/tasks/{request_id}/audio")
-        waveform, sample_rate = torchaudio.load(bytes_io.BytesIO(wav_bytes))
-        metadata = client.json_request("GET", f"/api/v1/tasks/{request_id}/metadata")
         return io.NodeOutput(
-            {"waveform": waveform.unsqueeze(0).to(torch.float32).cpu(), "sample_rate": int(sample_rate)},
-            metadata["instruction"],
+            {"waveform": waveform.unsqueeze(0).cpu(), "sample_rate": int(sample_rate)},
+            instruction,
             json.dumps(metadata, ensure_ascii=False, indent=2),
         )
 
 
-class AuKLocalExtension(ComfyExtension):
+class AuKExtension(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [AuKLocalConnection, AuKLocalGenerateEdit]
+        return [AuKModelLoader, AuKGenerateEdit]
 
 
-async def comfy_entrypoint() -> AuKLocalExtension:
-    return AuKLocalExtension()
+async def comfy_entrypoint() -> AuKExtension:
+    return AuKExtension()

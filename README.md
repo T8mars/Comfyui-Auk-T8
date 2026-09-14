@@ -1,70 +1,95 @@
 <div align="center">
 
-# AuK Local · T8star-Aix for ComfyUI
+# AuK · T8star-Aix Native ComfyUI Nodes
 
-ComfyUI V3 bridge nodes for AuK speech generation and editing
+Run AuK speech generation and editing directly inside ComfyUI
 
-[中文说明](README_CN.md) · [Model weights](https://huggingface.co/t8star/Auk-Comfy) · [One-click package](https://pan.quark.cn/s/264edb7e36bd)
+[中文说明](README_CN.md) · [Model repository](https://huggingface.co/t8star/Auk-Comfy) · [Standalone local package](https://pan.quark.cn/s/264edb7e36bd)
 
 </div>
 
-This repository contains the ComfyUI side of the AuK Local integration package. The nodes call the isolated AuK Local service at `http://127.0.0.1:7860`, so AuK, Qwen, and their Python dependencies stay outside the ComfyUI process.
+This is a standalone ComfyUI V3 custom-node package. It loads AuK, AuK-Flash, and Qwen2.5-Omni-3B directly in the ComfyUI process. It does not require AuK Local, a server at `127.0.0.1:7860`, or a service token.
 
-## Features
+This repository publishes only the **standalone ComfyUI node package**. There is one separate **AuK Local one-click package**. Each can be installed and run independently; they only share model sources and documentation links.
 
-- Two ComfyUI V3 nodes: **AuK Local Connection** and **AuK Local Generate / Edit**.
-- 16 tasks covering instruction TTS, zero-shot voice cloning, speech and lyric editing, pitch/speed/volume/emotion/timbre editing, de-accenting, nonverbal and whisper conversion, enhancement, and source separation.
-- Standard ComfyUI `AUDIO` output plus the final instruction and run metadata JSON.
-- AuK-Flash and AuK Base selection, deterministic seed, CPU offload, cancellation, retry recovery, and a 30-second input-plus-output guard.
-- Three ready-to-load workflows in [`example_workflows`](example_workflows).
+## Nodes
+
+- **AuK Model Loader** selects AuK-Flash or AuK Base. ComfyUI manages staged loading and offloading of the VAE, Qwen encoder, and DiT.
+- **AuK Generate / Edit** exposes 16 local task templates and returns standard ComfyUI `AUDIO`, the final instruction, and run metadata JSON.
+
+Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing, pitch/speed/volume/emotion/timbre editing, de-accenting, nonverbal editing, whisper conversion, enhancement, speaker separation, vocal extraction, and target-speaker extraction.
 
 ## Install
 
 ### ComfyUI Manager
 
-Search for **AuK Local · T8star-Aix** in ComfyUI Manager and install it, then restart ComfyUI.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI.
 
 ### Git
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/T8mars/Comfyui-Auk-T8
+cd Comfyui-Auk-T8
+pip install -r requirements.txt
 ```
 
-This bridge has no extra pip dependencies. ComfyUI supplies PyTorch and Torchaudio.
-
-## Run
-
-1. Download the single [AuK Local + ComfyUI integration package](https://pan.quark.cn/s/264edb7e36bd).
-2. Start `启动AuK服务.cmd` in the package and keep its window open.
-3. In ComfyUI, load one of the workflows in `example_workflows`.
-4. In **AuK Local Connection**, leave `service_url` as `http://127.0.0.1:7860`. If the node was installed by Manager, set the advanced `token_file` field to the package's absolute `data/session-token` path. The package installer configures this path automatically.
-5. Choose the task and run the workflow. Use your own audio in `Load Audio` for cloning or editing examples.
-
-The service listens on loopback only. The workflow stores the token file path, never the token itself.
+Install dependencies with the same Python interpreter that runs ComfyUI. The requirements do not install or replace PyTorch or TorchAudio.
 
 ## Models
 
-The exact model mirror used by this release is hosted at [t8star/Auk-Comfy](https://huggingface.co/t8star/Auk-Comfy):
+Download the model files from [t8star/Auk-Comfy](https://huggingface.co/t8star/Auk-Comfy) and keep this layout:
 
-- `AuK-Flash` — fast four-step generation.
-- `AuK` — base model for higher-quality generation and editing.
-- `Qwen2.5-Omni-3B` — prompt understanding used by the local service.
+```text
+ComfyUI/models/auk/
+├── AuK-Flash/
+│   ├── auk_flash.safetensors
+│   ├── vae.safetensors
+│   └── config.yaml
+├── AuK/
+│   ├── auk_base.safetensors
+│   ├── vae.safetensors
+│   └── config.yaml
+└── Qwen2.5-Omni-3B/
+    ├── config.json
+    ├── model-00001-of-00003.safetensors
+    ├── model-00002-of-00003.safetensors
+    ├── model-00003-of-00003.safetensors
+    └── the remaining repository files
+```
 
-The Hugging Face model card links back to this ComfyUI repository and records the upstream repositories, revisions, file sizes, and SHA-256 hashes.
+You can also run the downloader with ComfyUI's Python from the node directory. Both model variants require Qwen:
 
-## Example workflows
+```bash
+python download_models.py --variant flash
+python download_models.py --variant base
+python download_models.py --variant all
+```
 
-- `AuK-01-描述生成语音.json` — instruction TTS without reference audio.
-- `AuK-02-参考声音克隆.json` — zero-shot voice cloning.
-- `AuK-03-语音文字编辑.json` — edit spoken content while keeping the source voice.
+Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require about 25.5 GB.
+
+## Run
+
+1. Load a workflow from `example_workflows`.
+2. Select AuK-Flash or AuK Base in **AuK Model Loader**.
+3. Select a task and enter its content in **AuK Generate / Edit**. Connect ComfyUI `Load Audio` for tasks that require source or reference audio.
+4. Queue the workflow. AuK-Flash always uses NFE=4 and CFG=0; Base uses the advanced sampling controls.
+
+Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
+
+> Version 2.0.0 replaces the old HTTP bridge with native nodes. Old workflows containing `AuKLocalConnection` and `AuKLocalGenerateEdit` must be replaced with the workflows shipped in 2.0.0.
+
+## Standalone local package
+
+The [AuK Local one-click package](https://pan.quark.cn/s/264edb7e36bd) remains a separate light-themed web workstation with its own Python runtime, model management, task history, and launch scripts. It is no longer a runtime prerequisite for these ComfyUI nodes.
 
 ## Compatibility
 
-- ComfyUI `>=0.3.48` with the V3 custom-node API.
-- Windows 10/11 x64 for the published integration package.
-- Verified with Python 3.10, PyTorch/Torchaudio 2.7.1 + CUDA 12.8, and an NVIDIA RTX 5090 Laptop GPU with 24 GB VRAM.
-- Audio output: 24 kHz float WAV.
+- ComfyUI `>=0.23.0` with the V3 custom-node API and staged model-management interfaces.
+- Python `>=3.10`.
+- Verified with PyTorch/TorchAudio 2.7.x + CUDA 12.8 and a 24 GB NVIDIA GPU.
+- Model construction uses substantial host memory; 48 GB or more system RAM is recommended.
+- Output is 24 kHz float audio.
 
 ## Links
 
@@ -72,11 +97,11 @@ The Hugging Face model card links back to this ComfyUI repository and records th
 - [YouTube](https://www.youtube.com/@T8star-Aix/)
 - [API](https://api.seedance.nz/sign-up?aff=5f4w)
 - [Online AI apps](https://www.runninghub.ai/zh-cn/user-center/1907375370302308353/userPost?inviteCode=rh-v1121)
-- [ComfyUI integration package](https://pan.quark.cn/s/264edb7e36bd)
-- [Hugging Face models](https://huggingface.co/t8star/Auk-Comfy)
+- [Standalone local package](https://pan.quark.cn/s/264edb7e36bd)
+- [AuK-Comfy models](https://huggingface.co/t8star/Auk-Comfy)
 - [Hugging Face profile](https://huggingface.co/t8star)
 - [Original AuK project](https://github.com/Tencent-Hunyuan/AuK)
 
 ## License
 
-The node code is released under the [MIT License](LICENSE). Model files in the Hugging Face repository retain the license files supplied by their original authors.
+The node code is released under the [MIT License](LICENSE). Model files retain the licenses included by their upstream repositories.

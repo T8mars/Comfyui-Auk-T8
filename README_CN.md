@@ -1,70 +1,95 @@
 <div align="center">
 
-# AuK Local · T8star-Aix ComfyUI 节点
+# AuK · T8star-Aix ComfyUI 原生节点
 
-AuK 语音生成与编辑的 ComfyUI V3 桥接节点
+在 ComfyUI 进程内直接运行 AuK 语音生成与编辑
 
-[English](README.md) · [模型仓库](https://huggingface.co/t8star/Auk-Comfy) · [一键整合包](https://pan.quark.cn/s/264edb7e36bd)
+[English](README.md) · [模型仓库](https://huggingface.co/t8star/Auk-Comfy) · [独立本地整合包](https://pan.quark.cn/s/264edb7e36bd)
 
 </div>
 
-这是 AuK Local 单一整合包的 ComfyUI 节点仓库。节点通过 `http://127.0.0.1:7860` 调用独立的 AuK Local 服务，AuK、Qwen 和专用 Python 依赖不会加载到 ComfyUI 进程中，避免依赖冲突和重复占用显存。
+这是独立的 ComfyUI V3 节点。节点直接加载 AuK、AuK-Flash 和 Qwen2.5-Omni-3B，不依赖 AuK Local、不连接 `127.0.0.1:7860`，也不需要服务令牌。
 
-## 功能
+本仓库只发布**独立 ComfyUI 节点**；另外只有一个 **AuK Local 本地整合包**。二者可以分别安装和运行，只共用模型来源和文档链接。
 
-- 两个 ComfyUI V3 节点：**AuK Local 连接**、**AuK Local 生成 / 编辑**。
-- 覆盖 16 类任务：描述生成语音、参考声音克隆、语音文字编辑、歌词编辑、音高/速度/音量/情绪/音色编辑、去口音、非语言声音编辑、耳语转换、语音增强、说话人分离、音乐人声提取和指定说话人提取。
-- 输出标准 ComfyUI `AUDIO`、最终指令和完整运行参数 JSON。
-- 支持 AuK-Flash / AuK Base、固定 Seed、CPU Offload、取消、断线恢复和“输入时长 + 输出时长不超过 30 秒”校验。
-- `example_workflows` 内附三份可直接加载的工作流。
+## 节点
+
+- **AuK 模型加载器**：选择 AuK-Flash 或 AuK Base，由 ComfyUI 管理 VAE、Qwen 与 DiT 的分阶段加载和显存释放。
+- **AuK 生成 / 编辑**：提供 16 类本地任务模板，输出标准 ComfyUI `AUDIO`、最终指令和运行参数 JSON。
+
+支持描述生成语音、参考声音克隆、语音及歌词编辑、音高/速度/音量/情绪/音色编辑、去口音、非语言声音编辑、耳语转换、语音增强、说话人分离、音乐人声提取和指定说话人提取。
 
 ## 安装
 
 ### ComfyUI Manager
 
-在 ComfyUI Manager 中搜索 **AuK Local · T8star-Aix**，安装后重启 ComfyUI。
+在 ComfyUI Manager 搜索 **AuK · T8star-Aix**，安装后重启 ComfyUI。
 
-### Git 安装
+### Git
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/T8mars/Comfyui-Auk-T8
+cd Comfyui-Auk-T8
+pip install -r requirements.txt
 ```
 
-桥接节点没有额外 pip 依赖，PyTorch 与 Torchaudio 由 ComfyUI 提供。
-
-## 使用
-
-1. 下载唯一的 [AuK Local + ComfyUI 一键整合包](https://pan.quark.cn/s/264edb7e36bd)。
-2. 在整合包根目录双击 `启动AuK服务.cmd`，保持服务窗口运行。
-3. 在 ComfyUI 中加载 `example_workflows` 里的任一工作流。
-4. `AuK Local 连接` 的 `service_url` 默认保持 `http://127.0.0.1:7860`。如果节点来自 Manager，请在高级输入 `token_file` 中填写整合包内 `data/session-token` 的绝对路径；整合包自己的安装脚本会自动配置该路径。
-5. 选择任务并运行。声音克隆或编辑示例中的 `Load Audio` 文件名只是占位，请换成自己的音频。
-
-服务只监听本机回环地址。工作流只保存令牌文件路径，不保存令牌内容。
+必须使用运行 ComfyUI 的同一个 Python 安装依赖。`requirements.txt` 不会安装或更换 PyTorch、TorchAudio。
 
 ## 模型
 
-本版本使用的完整模型镜像位于 [t8star/Auk-Comfy](https://huggingface.co/t8star/Auk-Comfy)：
+从 [t8star/Auk-Comfy](https://huggingface.co/t8star/Auk-Comfy) 下载模型，并保持下面的目录结构：
 
-- `AuK-Flash`：四步快速生成，整合包默认模型。
-- `AuK`：高质量语音生成和编辑基础模型。
-- `Qwen2.5-Omni-3B`：本地服务使用的指令理解模型。
+```text
+ComfyUI/models/auk/
+├── AuK-Flash/
+│   ├── auk_flash.safetensors
+│   ├── vae.safetensors
+│   └── config.yaml
+├── AuK/
+│   ├── auk_base.safetensors
+│   ├── vae.safetensors
+│   └── config.yaml
+└── Qwen2.5-Omni-3B/
+    ├── config.json
+    ├── model-00001-of-00003.safetensors
+    ├── model-00002-of-00003.safetensors
+    ├── model-00003-of-00003.safetensors
+    └── 其余仓库文件
+```
 
-Hugging Face 模型卡会反向链接本 GitHub 仓库，并记录上游仓库、固定 revision、文件大小和 SHA-256。
+也可以使用 ComfyUI 的 Python 在节点目录下载。Flash 与 Base 都需要 Qwen：
 
-## 示例工作流
+```bash
+python download_models.py --variant flash
+python download_models.py --variant base
+python download_models.py --variant all
+```
 
-- `AuK-01-描述生成语音.json`：无需参考音频，按声音描述生成语音。
-- `AuK-02-参考声音克隆.json`：零样本声音克隆。
-- `AuK-03-语音文字编辑.json`：保留原声音色并修改说话内容。
+Flash + Qwen 约需 18.7 GB，两种 AuK 模型与 Qwen 全部下载约需 25.5 GB。
+
+## 使用
+
+1. 加载 `example_workflows` 中的工作流。
+2. 在 **AuK 模型加载器**选择 AuK-Flash 或 AuK Base。
+3. 在 **AuK 生成 / 编辑**选择任务并填写内容；需要参考音频的任务请连接 ComfyUI `Load Audio`。
+4. 运行工作流。AuK-Flash 自动固定为 NFE=4、CFG=0；Base 使用高级参数。
+
+输入/参考音频与生成目标共用 30 秒序列上限。CPU 模式可用于兼容测试，但速度很慢，推荐 NVIDIA CUDA 与 bf16。
+
+> 2.0.0 从旧版 HTTP 桥接架构改为原生节点。旧工作流中的 `AuKLocalConnection` 和 `AuKLocalGenerateEdit` 已移除，请改用随 2.0.0 提供的新工作流。
+
+## 独立本地整合包
+
+[AuK Local 一键整合包](https://pan.quark.cn/s/264edb7e36bd)继续提供独立的浅色网页工作台，自带 Python、模型管理、任务记录和启动脚本。它不再是本 ComfyUI 节点的运行前置条件。
 
 ## 兼容环境
 
-- ComfyUI `>=0.3.48`，使用 V3 自定义节点 API。
-- 发布的一键整合包支持 Windows 10/11 x64。
-- 已验证 Python 3.10、PyTorch/Torchaudio 2.7.1 + CUDA 12.8、NVIDIA RTX 5090 Laptop 24 GB。
-- 输出音频为 24 kHz float WAV。
+- ComfyUI `>=0.23.0`，需要 V3 自定义节点 API 和分阶段模型管理接口。
+- Python `>=3.10`。
+- 已验证 PyTorch/TorchAudio 2.7.x + CUDA 12.8 和 24 GB NVIDIA 显卡。
+- 首次构建模型会占用较多内存，建议 48 GB 以上系统内存。
+- 输出为 24 kHz float 音频。
 
 ## 社媒与资源
 
@@ -72,12 +97,11 @@ Hugging Face 模型卡会反向链接本 GitHub 仓库，并记录上游仓库�
 - [YouTube](https://www.youtube.com/@T8star-Aix/)
 - [API](https://api.seedance.nz/sign-up?aff=5f4w)
 - [在线 AI 应用](https://www.runninghub.ai/zh-cn/user-center/1907375370302308353/userPost?inviteCode=rh-v1121)
-- [ComfyUI 一键整合包](https://pan.quark.cn/s/264edb7e36bd)
+- [独立本地整合包](https://pan.quark.cn/s/264edb7e36bd)
 - [AuK-Comfy 模型仓库](https://huggingface.co/t8star/Auk-Comfy)
 - [Hugging Face 主页](https://huggingface.co/t8star)
 - [AuK 官方项目](https://github.com/Tencent-Hunyuan/AuK)
 
 ## 许可
 
-节点代码采用 [MIT License](LICENSE)。Hugging Face 仓库中的模型文件保留原作者随模型提供的许可文件。
-
+节点代码采用 [MIT License](LICENSE)。模型文件保留各上游仓库随模型提供的许可文件。

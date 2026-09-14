@@ -37,7 +37,7 @@ jobs:
         uses: Comfy-Org/publish-node-action@main
         with:
           personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
-      - name: Update release notes and deprecate incomplete package
+      - name: Update release notes and deprecate bridge releases
         env:
           REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
         shell: bash
@@ -73,15 +73,15 @@ jobs:
             --url "${api}/publishers/${publisher}/nodes/${node}/versions/${current_id}" \
             --header "${auth}" \
             --header "Content-Type: application/json" \
-            --data '{"changelog":"Removes optional environment-variable token discovery to satisfy Registry scanning; explicit token_file and installer-generated configuration remain supported.","deprecated":false}'
+            --data '{"changelog":"Replaces the AuK Local HTTP bridge with native ComfyUI V3 nodes. Models now load directly from ComfyUI/models/auk with staged ComfyUI memory management; port 7860 and service tokens are no longer required.","deprecated":false}'
 
-          for old_version in 1.0.0 1.0.1; do
+          for old_version in 1.0.0 1.0.1 1.0.2; do
             old_id="$(get_version_id "${old_version}")"
             if [[ -n "${old_id}" ]]; then
               curl --fail-with-body --retry 3 --request PUT \
                 --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
                 --header "${auth}" \
                 --header "Content-Type: application/json" \
-                --data '{"changelog":"Superseded by 1.0.2, which removes the Registry scanner false-positive trigger.","deprecated":true}'
+                --data '{"changelog":"Superseded by native release 2.0.0. This version requires the separate AuK Local HTTP service.","deprecated":true}'
             fi
           done
