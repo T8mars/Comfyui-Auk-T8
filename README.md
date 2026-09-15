@@ -14,16 +14,16 @@ This repository publishes only the **standalone ComfyUI node package**. There is
 
 ## Nodes
 
-- **AuK Model Loader** selects AuK-Flash or AuK Base. ComfyUI manages staged loading and offloading of the VAE, Qwen encoder, and DiT.
-- **AuK Generate / Edit** exposes 16 local task templates and returns standard ComfyUI `AUDIO`, the final instruction, and run metadata JSON.
+- **AuK Model Loader** defaults to the higher-quality AuK Base and can switch to the speed-oriented AuK-Flash. ComfyUI manages staged loading and offloading of the VAE, Qwen encoder, and DiT.
+- **AuK Generate / Edit** exposes 17 Chinese task entries that cover all 16 upstream low-level tasks. Target-speaker extraction is a content-based entry for speaker separation. The node returns standard ComfyUI `AUDIO`, the final instruction, and run metadata JSON.
 
-Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing, pitch/speed/volume/emotion/timbre editing, de-accenting, nonverbal editing, whisper conversion, enhancement, speaker separation, vocal extraction, and target-speaker extraction.
+Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing, pitch/speed/volume/emotion/timbre editing, de-accenting, nonverbal editing, whisper conversion, enhancement, quality repair, speaker separation, vocal extraction, and target-speaker extraction.
 
 ## Install
 
 ### ComfyUI Manager
 
-Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.4 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.5 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
 
 ### Git
 
@@ -72,18 +72,20 @@ Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require abou
 
 ## Run
 
-1. Load a workflow from `example_workflows`.
-2. Select AuK-Flash or AuK Base in **AuK Model Loader**.
+1. Drag the JSON for the required task from `example_workflows` into ComfyUI. The folder contains an executable workflow for every one of the 17 entries.
+2. **AuK Model Loader** defaults to AuK Base. Prefer Base for emotion, accent, timbre, nonverbal, whisper, and repair tasks; Flash is intended for fast previews.
 3. Select a task and enter its content in **AuK Generate / Edit**. Connect ComfyUI `Load Audio` for tasks that require source or reference audio.
 4. Queue the workflow. AuK-Flash always uses NFE=4 and CFG=0; Base uses the advanced sampling controls.
 
 Instruction TTS and voice cloning default to **automatic TTS duration**. This estimates the spoken length from the target text and prevents a short sentence from continuing into AuK's internal no-reference marker when a much longer duration is requested. Select **manual duration** when exact timing is required. The Seed widget uses ComfyUI's standard **randomize after generation** mode by default; switch its control mode to fixed to reproduce a result. The metadata output records the actual seed, requested duration, resolved duration, and duration mode.
 
-Pitch, volume, emotion, timbre, lyric, de-accent, whisper, enhancement, and separation tasks automatically produce source-aligned output, following the model's documented behavior. Speed editing calculates its output duration as source duration divided by the selected multiplier. The target-duration widget is ignored for those tasks. Speech-content editing and nonverbal editing use the manual target duration. Model loading and generation report native ComfyUI progress through configuration, Qwen, VAE, AuK, text/reference encoding, sampling, and decoding stages. Speed supports `0.5`, `0.75`, `1.25`, `1.5`, or `2.0`; pitch uses `+1/+2/+3` or `-1/-2/-3` semitones, and volume uses `+5/+10/+15` or `-5/-10/-15` dB.
+Pitch, volume, timbre, de-accent, whisper, enhancement, quality repair, and separation match the audio actually received by the node. Speed uses `input duration / multiplier`. Emotion uses the official factors: 1.22× for sad, 1.16× for fearful, and 1.06× for the other supported emotions. Speech and lyric edits estimate the result from the text added or removed. Nonverbal edits add or remove the official event duration. These automatic rules ignore a stale target-duration widget, so a 48-second source trimmed to four seconds is validated as the actual four-second node input.
+
+Before inference, the node conservatively removes long speech-edge silence, applies the official input loudness target for whisper conversion, and peak-limits lyric and music-separation outputs to prevent damaged tails. Emotion, de-accenting, and whisper conversion require ordinary spoken speech. Singing is not a valid test source for those tasks, and already-standard speech is not a valid de-accenting test. Model loading and generation report native ComfyUI progress through configuration, Qwen, VAE, AuK, text/reference encoding, sampling, and decoding stages. Speed supports `0.5`, `0.75`, `1.25`, `1.5`, or `2.0`; pitch uses `+1/+2/+3` or `-1/-2/-3` semitones, and volume uses `+5/+10/+15` or `-5/-10/-15` dB.
 
 Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
 
-> Version 2.0.4 aligns automatic TTS duration with AuK's own F5 duration baseline, changes the standard Seed control to randomize by default, and reports finer native progress while loading and generating. The verified reproduction phrase `一只小猫在叫啊` resolves from the old 3.0-second default to 1.7 seconds, which removed the spoken `no prompt` tail in local ASR verification.
+> Version 2.0.5 fixes validation against stale pre-trim durations, completes the official duration and preprocessing rules, adds quality repair, and defaults to AuK Base. The package includes drag-and-drop workflows for all 17 task entries.
 
 ## Standalone local package
 

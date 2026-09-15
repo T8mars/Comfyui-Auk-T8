@@ -30,10 +30,14 @@ from .runtime import (
     source_latent_frames,
     validate_sequence_duration,
 )
+from .preprocess import limit_vocal_output, prepare_model_audio
 from .task_templates import (
     TASK_BY_LABEL,
     TASKS,
     build_instruction,
+    content_scaled_seconds,
+    emotion_duration_multiplier,
+    nonverbal_duration_delta,
     parse_speed_multiplier,
 )
 
@@ -179,6 +183,7 @@ def resolve_generation_seconds(
     primary: str,
     task_key: str | None = None,
     duration_mode: str = MANUAL_DURATION_MODE,
+    secondary: str = "",
 ) -> float:
     """Resolve the output duration while preserving source length for fixed-length edits."""
     if duration_strategy == "source":
@@ -189,6 +194,25 @@ def resolve_generation_seconds(
         if audio is None:
             raise ValueError("速度编辑需要输入音频")
         target_frames = math.ceil(source_latent_frames(engine, audio) / parse_speed_multiplier(primary))
+        return latent_frames_to_seconds(engine, target_frames)
+    if duration_strategy == "emotion":
+        if audio is None:
+            raise ValueError("情绪编辑需要输入音频")
+        target_frames = math.ceil(source_latent_frames(engine, audio) * emotion_duration_multiplier(primary))
+        return latent_frames_to_seconds(engine, target_frames)
+    if duration_strategy == "content":
+        if audio is None or task_key is None:
+            raise ValueError("文字/歌词编辑需要输入音频")
+        target = content_scaled_seconds(
+            task_key, primary, source_aligned_seconds(engine, audio), str(secondary or "").strip(),
+        )
+        target_frames = math.ceil(target * engine.target_sample_rate / engine.downsample_rate)
+        return latent_frames_to_seconds(engine, target_frames)
+    if duration_strategy == "nonverbal":
+        if audio is None:
+            raise ValueError("非语言声音编辑需要输入音频")
+        target = max(0.1, source_aligned_seconds(engine, audio) + nonverbal_duration_delta(primary))
+        target_frames = math.ceil(target * engine.target_sample_rate / engine.downsample_rate)
         return latent_frames_to_seconds(engine, target_frames)
     if task_key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE:
         return estimate_tts_seconds(primary, max_seconds=MAX_SEQUENCE_SECONDS)
@@ -205,7 +229,7 @@ class AuKModelLoader(io.ComfyNode):
             category="AuK · T8star-Aix",
             description="直接在 ComfyUI 内加载 AuK，不需要启动 7860 服务。模型由 ComfyUI 分阶段管理显存。",
             inputs=[
-                io.Combo.Input("model_variant", display_name="模型", options=list(MODEL_VARIANTS), default="AuK-Flash"),
+                io.Combo.Input("model_variant", display_name="模型", options=list(MODEL_VARIANTS), default="AuK Base"),
                 io.Combo.Input("device", display_name="设备", options=devices, default="auto", advanced=True),
                 io.Combo.Input(
                     "dtype",
@@ -255,7 +279,7 @@ class AuKGenerateEdit(io.ComfyNode):
             node_id="AuKGenerateEdit",
             display_name="AuK 生成 / 编辑",
             category="AuK · T8star-Aix",
-            description="在 ComfyUI 进程内执行 AuK 的 16 类任务；等长与变速编辑会自动计算输出时长。",
+            description="在 ComfyUI 进程内执行 AuK 全部官方任务；编辑任务会按官方规则自动计算输出时长。",
             inputs=[
                 AUK_ENGINE.Input("engine", display_name="AuK 模型"),
                 io.Combo.Input("task", display_name="任务", options=[task.label for task in TASKS], default=TASKS[0].label),
@@ -263,11 +287,11 @@ class AuKGenerateEdit(io.ComfyNode):
                     "primary",
                     display_name="主要内容（变速填倍率；音高/音量填带符号数值）",
                     multiline=True,
-                    default="你好，欢迎使用 AuK。",
+                    default="",
                 ),
                 io.String.Input(
                     "secondary",
-                    display_name="声音描述 / 附加要求",
+                    display_name="声音描述 / 完整原文（仅文字或歌词估时）",
                     multiline=True,
                     default="",
                 ),
@@ -343,9 +367,13 @@ class AuKGenerateEdit(io.ComfyNode):
         audio = normalize_audio(None if not template.needs_audio else input_audio)
         if template.needs_audio and audio is None:
             raise ValueError(f"“{task}”需要连接输入或参考音频")
+        preprocessing = None
+        if audio is not None:
+            waveform, sample_rate = audio
+            waveform, preprocessing = prepare_model_audio(waveform, sample_rate, template.key, primary)
+            audio = (waveform, sample_rate)
         instruction = build_instruction(template.key, primary, secondary)
         requested_seconds = float(generation_seconds)
-        validate_sequence_duration(engine, None, requested_seconds)
         target_seconds = resolve_generation_seconds(
             engine,
             template.duration_strategy,
@@ -354,6 +382,7 @@ class AuKGenerateEdit(io.ComfyNode):
             primary,
             template.key,
             duration_mode,
+            secondary,
         )
         validate_sequence_duration(engine, audio, target_seconds)
         if engine.is_flash:
@@ -405,6 +434,7 @@ class AuKGenerateEdit(io.ComfyNode):
             interrupt_callback,
             phase_callback,
         )
+        waveform, vocal_peak_limited = limit_vocal_output(waveform, template.key)
         progress.update_absolute(100)
         effective_duration_strategy = (
             "auto_text" if template.key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE else template.duration_strategy
@@ -419,6 +449,8 @@ class AuKGenerateEdit(io.ComfyNode):
             "requested_generation_seconds": requested_seconds,
             "duration_strategy": effective_duration_strategy,
             "duration_mode": duration_mode,
+            "input_preprocessing": preprocessing,
+            "vocal_output_peak_limited": vocal_peak_limited,
             "sample_rate": int(sample_rate),
             "actual_output_seconds": waveform.shape[-1] / int(sample_rate),
             "nfe_steps": int(nfe_steps),

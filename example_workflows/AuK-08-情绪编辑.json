@@ -131,8 +131,8 @@
         "Node name for S&R": "AuKGenerateEdit"
       },
       "widgets_values": [
-        "参考声音克隆",
-        "你好，这是使用参考声音生成的测试音频。",
+        "情绪编辑",
+        "悲伤",
         "",
         3.0,
         42,
@@ -212,7 +212,7 @@
         "Node name for S&R": "SaveAudio"
       },
       "widgets_values": [
-        "auk/声音克隆"
+        "auk/情绪编辑"
       ]
     }
   ],

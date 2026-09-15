@@ -31,7 +31,7 @@
         "Node name for S&R": "AuKModelLoader"
       },
       "widgets_values": [
-        "AuK-Flash",
+        "AuK Base",
         "auto",
         "auto"
       ]
@@ -132,9 +132,9 @@
       },
       "widgets_values": [
         "语音文字编辑",
-        "把‘旧内容’改成‘新内容’",
-        "",
-        7.0,
+        "把“今天下午开会”改成“明天上午开会”",
+        "今天下午开会，请大家准时参加。",
+        3.0,
         42,
         "randomize",
         32,
@@ -212,7 +212,7 @@
         "Node name for S&R": "SaveAudio"
       },
       "widgets_values": [
-        "auk/语音编辑"
+        "auk/语音文字编辑"
       ]
     }
   ],

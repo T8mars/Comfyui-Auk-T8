@@ -1,0 +1,35 @@
+{
+  "model": "AuK Base",
+  "device": "cuda:0",
+  "dtype": "bf16",
+  "task": "emotion",
+  "seed": 20260916,
+  "generation_seconds": 7.199999999999999,
+  "requested_generation_seconds": 29.9,
+  "duration_strategy": "emotion",
+  "duration_mode": "自动估算（TTS 推荐）",
+  "input_preprocessing": {
+    "method": "task_aware_energy_vad_rms",
+    "source_frames_before": 151681,
+    "source_frames_after": 148800,
+    "vad_trim_bounds_sec": [
+      0.02,
+      6.22
+    ],
+    "whisper_target_rms": null,
+    "whisper_measured_rms_before": null
+  },
+  "vocal_output_peak_limited": false,
+  "sample_rate": 24000,
+  "actual_output_seconds": 7.2,
+  "nfe_steps": 32,
+  "cfg_strength": 2.0,
+  "sway_sampling_coef": -1.0,
+  "elapsed_seconds": 40.293,
+  "runtime": "native_comfyui",
+  "model_revision": "790742b71a4430120daf2b2099192abae449eb9f",
+  "qwen_revision": "f75b40e3da2003cdd6e1829b1f420ca70797c34e",
+  "instruction": "将情感转变为恐惧。",
+  "input_path": "E:\\auk\\AuK-Local\\assets\\demo-input-audio\\emotion-edit\\en-1-input.wav",
+  "output_path": "E:\\auk\\Comfyui-Auk-T8\\planning\\comfy-real-emotion-fear.wav"
+}

@@ -50,8 +50,16 @@ def test_runtime_has_no_service_client(plugin):
 
 
 def test_all_task_templates_build_local_instruction(plugin):
-    assert len(plugin.nodes.TASKS) == 16
-    discrete_inputs = {"pitch": "+2", "speed": "1.25", "volume": "-10"}
+    assert len(plugin.nodes.TASKS) == 17
+    discrete_inputs = {
+        "pitch": "+2", "speed": "1.25", "volume": "-10", "emotion": "悲伤",
+        "content_edit": "把“今天”改成“明天”",
+        "lyric_edit": "把歌词“今天”改成“明天”",
+        "whisper": "转换成耳语",
+        "enhance": "去噪并去混响",
+        "music_separate": "只保留歌声",
+        "quality": "去掉电话感",
+    }
     for task in plugin.nodes.TASKS:
         primary = discrete_inputs.get(task.key, "主要内容")
         instruction = plugin.nodes.build_instruction(task.key, primary, "附加要求")
@@ -62,6 +70,44 @@ def test_zero_shot_uses_official_instruction_without_reference_transcript(plugin
     instruction = plugin.nodes.build_instruction("zero_shot_tts", "你好", "参考音频文字")
     assert instruction == 'Say the following with the same voice: "你好"'
     assert "参考音频文字" not in instruction
+
+
+@pytest.mark.parametrize(
+    ("task_key", "primary", "expected"),
+    [
+        ("instruct_tts", "欢迎回来", '请基于下面的描述: "不应发送",生成语音内容"欢迎回来".'),
+        ("zero_shot_tts", "欢迎回来", 'Say the following with the same voice: "欢迎回来"'),
+        ("content_edit", "把“今天”改成“明天”", "把‘今天’改成‘明天’"),
+        ("lyric_edit", "把歌词“今天”改成“明天”", "把这段歌词中的“今天”改成“明天”。"),
+        ("pitch", "+1", "将音调升高1个半音。"),
+        ("speed", "1.5", "将语速调整为1.5倍。"),
+        ("volume", "-10", "将音量降低10分贝。"),
+        ("emotion", "悲伤", "将情感转变为悲伤。"),
+        ("timbre", "低沉男声", "请将这段音频的音色修改为符合以下描述的声音：“低沉男声”。"),
+        ("deaccent", "去掉方言口音", "请去掉这段语音里的方言口音，保持说话人音色一致。"),
+        ("nonverbal", "在开头增加笑声", "在开头增加笑声。"),
+        ("whisper", "转换成耳语", "用小声耳语的方式把这段话说出来。"),
+        ("enhance", "去噪并去混响", "请对这段语音做纯净化处理，保留所有说话人的人声，并去除其中的噪声和混响，输出与输入等长的干净人声。"),
+        ("quality", "去掉电话感", "请消除这段音频的电话音色，这段音频带有混响，请恢复成无混响的干声，输出自然清晰的人声。"),
+        ("speech_separate", "第一个开始说话的人", "这段音频中只保留第一个开始说话的人对应的语音，去掉其余说话人。"),
+        ("music_separate", "只保留歌声", "请只保留歌声，其余声音都去掉。"),
+        ("target_speaker", "欢迎大家", "请只保留说'欢迎大家'的人，去掉其他说话人，输出等长纯净人声。"),
+    ],
+)
+def test_every_task_uses_exact_official_instruction_and_ignores_secondary(plugin, task_key, primary, expected):
+    assert plugin.nodes.build_instruction(task_key, primary, "不应发送") == expected
+
+
+@pytest.mark.parametrize(
+    ("task_key", "raw", "expected"),
+    [
+        ("content_edit", "夜色那么美改成白天那么美", "把‘夜色那么美’改成‘白天那么美’"),
+        ("content_edit", "把“今天下午开会”改成“明天上午开会”", "把‘今天下午开会’改成‘明天上午开会’"),
+        ("lyric_edit", "把歌词‘明天你好’改成‘未来你好’", "把这段歌词中的“明天你好”改成“未来你好”。"),
+    ],
+)
+def test_replacement_requests_use_official_templates(plugin, task_key, raw, expected):
+    assert plugin.nodes.build_instruction(task_key, raw, "整段原文不应发送") == expected
 
 
 @pytest.mark.parametrize(
@@ -189,8 +235,8 @@ def test_equal_length_task_uses_source_duration_and_reports_it(plugin):
     source = {"waveform": torch.ones(1, 1, 24_000 * 5), "sample_rate": 24_000}
     result = plugin.nodes.AuKGenerateEdit.execute(
         engine,
-        "情绪编辑",
-        "开心",
+        "音高编辑",
+        "+1",
         "",
         3.0,
         42,
@@ -202,6 +248,25 @@ def test_equal_length_task_uses_source_duration_and_reports_it(plugin):
     assert pytest.approx(metadata["generation_seconds"], abs=1e-9) == 5.0
     assert metadata["requested_generation_seconds"] == 3.0
     assert metadata["duration_strategy"] == "source"
+
+
+def test_emotion_task_uses_official_duration_multiplier(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 5), "sample_rate": 24_000}
+    result = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "情绪编辑",
+        "悲伤",
+        "不会附加到指令",
+        3.0,
+        42,
+        input_audio=source,
+    )
+    assert engine.call[0][0]["content"][0]["text"].startswith("将情感转变为悲伤。")
+    assert pytest.approx(engine.call[2], abs=1e-9) == 6.1
+    metadata = json.loads(result.result[2])
+    assert pytest.approx(metadata["generation_seconds"], abs=1e-9) == 6.1
+    assert metadata["duration_strategy"] == "emotion"
 
 
 def test_manual_duration_task_keeps_requested_duration(plugin):
@@ -247,20 +312,68 @@ def test_source_duration_matches_resampled_latent_frame_count(plugin):
 
 def test_official_equal_length_tasks_are_marked_source_aligned(plugin):
     expected = {
-        "lyric_edit",
         "pitch",
         "volume",
-        "emotion",
         "timbre",
         "deaccent",
         "whisper",
         "enhance",
+        "quality",
         "speech_separate",
         "music_separate",
         "target_speaker",
     }
     actual = {task.key for task in plugin.nodes.TASKS if task.duration_strategy == "source"}
     assert actual == expected
+    assert next(task for task in plugin.nodes.TASKS if task.key == "emotion").duration_strategy == "emotion"
+    assert {
+        task.key for task in plugin.nodes.TASKS if task.duration_strategy == "content"
+    } == {"content_edit", "lyric_edit"}
+    assert next(task for task in plugin.nodes.TASKS if task.key == "nonverbal").duration_strategy == "nonverbal"
+
+
+def test_content_and_nonverbal_tasks_use_official_duration_rules(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 10), "sample_rate": 24_000}
+    content = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "语音文字编辑",
+        "把“今天”改成“明天上午”",
+        "我们今天开会",
+        48.0,
+        42,
+        input_audio=source,
+    )
+    assert pytest.approx(engine.call[2], abs=1e-9) == 13.34
+    assert json.loads(content.result[2])["duration_strategy"] == "content"
+
+    nonverbal = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "非语言声音编辑",
+        "在语音开头增加笑声",
+        "不应发送",
+        48.0,
+        42,
+        input_audio=source,
+    )
+    assert pytest.approx(engine.call[2], abs=1e-9) == 10.76
+    assert json.loads(nonverbal.result[2])["duration_strategy"] == "nonverbal"
+
+
+def test_automatic_edit_ignores_stale_out_of_range_duration_widget(plugin):
+    engine = FakeEngine()
+    source = {"waveform": torch.ones(1, 1, 24_000 * 4), "sample_rate": 24_000}
+    result = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "去口音",
+        "去掉方言口音",
+        "",
+        48.0,
+        42,
+        input_audio=source,
+    )
+    assert engine.call[2] == pytest.approx(4.0)
+    assert json.loads(result.result[2])["requested_generation_seconds"] == 48.0
 
 
 def test_sequence_limit_counts_source_and_target(plugin):
@@ -438,7 +551,10 @@ def test_model_paths_support_split_extra_auk_roots(plugin, tmp_path, monkeypatch
 
 def test_example_workflows_only_use_native_node_ids(plugin):
     root = Path(plugin.__file__).parent / "example_workflows"
-    for path in root.glob("*.json"):
+    paths = sorted(root.glob("*.json"))
+    assert len(paths) == len(plugin.nodes.TASKS) == 17
+    workflow_tasks = set()
+    for path in paths:
         workflow = json.loads(path.read_text(encoding="utf-8"))
         node_ids = {node["type"] for node in workflow["nodes"]}
         assert "AuKModelLoader" in node_ids
@@ -446,6 +562,17 @@ def test_example_workflows_only_use_native_node_ids(plugin):
         assert not {"AuKLocalConnection", "AuKLocalGenerateEdit"} & node_ids
         assert "SaveAudio" in node_ids
         assert "SaveAudioAdvanced" not in node_ids
+        loader = next(node for node in workflow["nodes"] if node["type"] == "AuKModelLoader")
+        generator = next(node for node in workflow["nodes"] if node["type"] == "AuKGenerateEdit")
+        assert loader["widgets_values"][0] == "AuK Base"
+        assert len(generator["widgets_values"]) == 10
+        label, primary, secondary = generator["widgets_values"][:3]
+        template = plugin.nodes.TASK_BY_LABEL[label]
+        plugin.nodes.build_instruction(template.key, primary, secondary)
+        workflow_tasks.add(label)
+        if template.needs_audio:
+            assert "LoadAudio" in node_ids
+    assert workflow_tasks == {task.label for task in plugin.nodes.TASKS}
 
 
 def test_downloader_pins_the_mirror_revision(plugin, tmp_path, monkeypatch):

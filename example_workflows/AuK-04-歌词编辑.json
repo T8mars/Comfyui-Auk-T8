@@ -131,9 +131,9 @@
         "Node name for S&R": "AuKGenerateEdit"
       },
       "widgets_values": [
-        "参考声音克隆",
-        "你好，这是使用参考声音生成的测试音频。",
-        "",
+        "歌词编辑",
+        "把歌词“明天你好”改成“未来你好”",
+        "明天你好，声音多渺小。",
         3.0,
         42,
         "randomize",
@@ -212,7 +212,7 @@
         "Node name for S&R": "SaveAudio"
       },
       "widgets_values": [
-        "auk/声音克隆"
+        "auk/歌词编辑"
       ]
     }
   ],
