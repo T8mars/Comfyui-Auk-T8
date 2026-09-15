@@ -23,7 +23,7 @@
 
 ### ComfyUI Manager
 
-在 ComfyUI Manager 搜索 **AuK · T8star-Aix**，安装后重启 ComfyUI。请确认 Manager 提供的是 2.0.3 或更高版本；如果 Registry 尚在处理、仍显示旧版本，请先使用 Git 安装。
+在 ComfyUI Manager 搜索 **AuK · T8star-Aix**，安装后重启 ComfyUI。请确认 Manager 提供的是 2.0.4 或更高版本；如果 Registry 尚在处理、仍显示旧版本，请先使用 Git 安装。
 
 ### Git
 
@@ -83,7 +83,7 @@ Flash + Qwen 约需 18.7 GB，两种 AuK 模型与 Qwen 全部下载约需 25.5 
 
 输入/参考音频与生成目标共用 30 秒序列上限。CPU 模式可用于兼容测试，但速度很慢，推荐 NVIDIA CUDA 与 bf16。
 
-> 2.0.3 新增 TTS 自动估时、默认随机 Seed 和更细的原生进度。实测复现句“一只小猫在叫啊”会从旧默认 3.0 秒自动调整为 1.7 秒，本地 ASR 复核后结尾不再出现 `no prompt`。
+> 2.0.4 将 TTS 自动估时与 AuK 自身的 F5 时长基线对齐，同时提供默认随机 Seed 和更细的原生进度。实测复现句“一只小猫在叫啊”会从旧默认 3.0 秒自动调整为 1.7 秒，本地 ASR 复核后结尾不再出现 `no prompt`。
 
 ## 独立本地整合包
 

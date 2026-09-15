@@ -8,36 +8,39 @@ AUTO_DURATION_MODE = "自动估算（TTS 推荐）"
 MANUAL_DURATION_MODE = "手动指定"
 
 _CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
-_LATIN_WORD_RE = re.compile(r"[A-Za-z]+(?:['’-][A-Za-z]+)*")
-_DIGIT_RE = re.compile(r"\d")
-_SHORT_PAUSE_RE = re.compile(r"[,，、;；:：]")
-_LONG_PAUSE_RE = re.compile(r"[.!?。！？…]")
+_SECONDS_PER_UTF8_BYTE = {"en": 0.0656, "zh": 0.0803}
+_SAMPLE_RATE = 24_000
+_HOP_LENGTH = 256
+_SHORT_TEXT_BYTE_THRESHOLD = 10
+_SHORT_TEXT_SPEED = 0.3
 
 
 def estimate_tts_seconds(text: str, *, max_seconds: float = 30.0) -> float:
-    """Estimate spoken length with a small tail margin, rounded up to 0.1 s."""
+    """Mirror AuK PE's F5 duration baseline and round up to the UI's 0.1 s step."""
     value = str(text or "").strip()
     if not value:
         raise ValueError("自动估算时长需要填写目标文本")
 
-    cjk_count = len(_CJK_RE.findall(value))
-    latin_words = len(_LATIN_WORD_RE.findall(value))
-    digit_count = len(_DIGIT_RE.findall(value))
-    short_pauses = len(_SHORT_PAUSE_RE.findall(value))
-    long_pauses = len(_LONG_PAUSE_RE.findall(value))
-    other_units = len(
-        re.findall(
-            r"[^\s\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaffA-Za-z\d,，、;；:：.!?。！？…]",
-            value,
-        )
-    )
-    seconds = (
-        0.30
-        + cjk_count * 0.20
-        + latin_words * 0.36
-        + digit_count * 0.18
-        + other_units * 0.16
-        + short_pauses * 0.12
-        + long_pauses * 0.20
-    )
+    fallback = "zh" if _CJK_RE.search(value) else "en"
+    languages = ["zh" if _CJK_RE.fullmatch(char) else ("en" if char.isascii() and char.isalpha() else None) for char in value]
+    next_languages: list[str | None] = [None] * len(value)
+    next_language = None
+    for index in range(len(value) - 1, -1, -1):
+        if languages[index] is not None:
+            next_language = languages[index]
+        next_languages[index] = next_language
+
+    weight = 0.0
+    previous_language = None
+    for index, char in enumerate(value):
+        language = languages[index]
+        if language is None:
+            language = previous_language or next_languages[index] or fallback
+        else:
+            previous_language = language
+        weight += len(char.encode("utf-8")) * _SECONDS_PER_UTF8_BYTE[language]
+
+    speed = _SHORT_TEXT_SPEED if len(value.encode("utf-8")) < _SHORT_TEXT_BYTE_THRESHOLD else 1.0
+    frames = int(weight * _SAMPLE_RATE / _HOP_LENGTH / speed)
+    seconds = frames * _HOP_LENGTH / _SAMPLE_RATE
     return min(float(max_seconds), max(0.6, math.ceil(seconds * 10.0 - 1e-9) / 10.0))

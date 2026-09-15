@@ -23,7 +23,7 @@ Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing
 
 ### ComfyUI Manager
 
-Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.3 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.4 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
 
 ### Git
 
@@ -83,7 +83,7 @@ Pitch, volume, emotion, timbre, lyric, de-accent, whisper, enhancement, and sepa
 
 Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
 
-> Version 2.0.3 adds automatic TTS duration, changes the standard Seed control to randomize by default, and reports finer native progress while loading and generating. The verified reproduction phrase `一只小猫在叫啊` resolves from the old 3.0-second default to 1.7 seconds, which removed the spoken `no prompt` tail in local ASR verification.
+> Version 2.0.4 aligns automatic TTS duration with AuK's own F5 duration baseline, changes the standard Seed control to randomize by default, and reports finer native progress while loading and generating. The verified reproduction phrase `一只小猫在叫啊` resolves from the old 3.0-second default to 1.7 seconds, which removed the spoken `no prompt` tail in local ASR verification.
 
 ## Standalone local package
 

@@ -75,13 +75,13 @@ jobs:
             --header "Content-Type: application/json" \
             --data '{"changelog":"Adds automatic TTS duration to prevent spoken no-prompt tails, defaults the standard Seed control to randomize after generation, and reports finer native progress for model loading and generation.","deprecated":false}'
 
-          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0 2.0.1 2.0.2; do
+          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0 2.0.1 2.0.2 2.0.3; do
             old_id="$(get_version_id "${old_version}")"
             if [[ -n "${old_id}" ]]; then
               curl --fail-with-body --retry 3 --request PUT \
                 --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
                 --header "${auth}" \
                 --header "Content-Type: application/json" \
-                --data '{"changelog":"Superseded by native release 2.0.3. Update to the latest version.","deprecated":true}'
+                --data '{"changelog":"Superseded by native release 2.0.4. Update to the latest version.","deprecated":true}'
             fi
           done
