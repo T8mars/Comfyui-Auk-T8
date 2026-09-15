@@ -23,7 +23,7 @@ Tasks include instruction TTS, zero-shot voice cloning, speech and lyric editing
 
 ### ComfyUI Manager
 
-Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.2 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
+Search for **AuK · T8star-Aix** in ComfyUI Manager, install it, and restart ComfyUI. Confirm that Manager offers version 2.0.3 or later; if Registry processing still shows an older release, use the Git installation until the new version becomes active.
 
 ### Git
 
@@ -77,11 +77,13 @@ Flash plus Qwen requires about 18.7 GB. Both AuK variants plus Qwen require abou
 3. Select a task and enter its content in **AuK Generate / Edit**. Connect ComfyUI `Load Audio` for tasks that require source or reference audio.
 4. Queue the workflow. AuK-Flash always uses NFE=4 and CFG=0; Base uses the advanced sampling controls.
 
-Pitch, volume, emotion, timbre, lyric, de-accent, whisper, enhancement, and separation tasks automatically produce source-aligned output, following the model's documented behavior. Speed editing calculates its output duration as source duration divided by the selected multiplier. The target-duration widget is ignored for those tasks. Instruct TTS, voice cloning, speech-content editing, and nonverbal editing use the manual target duration. Speed supports `0.5`, `0.75`, `1.25`, `1.5`, or `2.0`; pitch uses `+1/+2/+3` or `-1/-2/-3` semitones, and volume uses `+5/+10/+15` or `-5/-10/-15` dB.
+Instruction TTS and voice cloning default to **automatic TTS duration**. This estimates the spoken length from the target text and prevents a short sentence from continuing into AuK's internal no-reference marker when a much longer duration is requested. Select **manual duration** when exact timing is required. The Seed widget uses ComfyUI's standard **randomize after generation** mode by default; switch its control mode to fixed to reproduce a result. The metadata output records the actual seed, requested duration, resolved duration, and duration mode.
+
+Pitch, volume, emotion, timbre, lyric, de-accent, whisper, enhancement, and separation tasks automatically produce source-aligned output, following the model's documented behavior. Speed editing calculates its output duration as source duration divided by the selected multiplier. The target-duration widget is ignored for those tasks. Speech-content editing and nonverbal editing use the manual target duration. Model loading and generation report native ComfyUI progress through configuration, Qwen, VAE, AuK, text/reference encoding, sampling, and decoding stages. Speed supports `0.5`, `0.75`, `1.25`, `1.5`, or `2.0`; pitch uses `+1/+2/+3` or `-1/-2/-3` semitones, and volume uses `+5/+10/+15` or `-5/-10/-15` dB.
 
 Source/reference audio and the generated target share a 30-second sequence limit. CPU mode is available for compatibility testing but is very slow; NVIDIA CUDA with bf16 is recommended.
 
-> Version 2.0.2 is the current native release. It fixes editing tasks being truncated to the default three seconds, ambiguous pitch/volume direction, cross-task prompt contamination from the secondary-field default, and bf16/fp16 Qwen weights being expanded to fp32. Replace workflows containing `AuKLocalConnection` or `AuKLocalGenerateEdit`, and update from 2.0.1 or earlier.
+> Version 2.0.3 adds automatic TTS duration, changes the standard Seed control to randomize by default, and reports finer native progress while loading and generating. The verified reproduction phrase `一只小猫在叫啊` resolves from the old 3.0-second default to 1.7 seconds, which removed the spoken `no prompt` tail in local ASR verification.
 
 ## Standalone local package
 

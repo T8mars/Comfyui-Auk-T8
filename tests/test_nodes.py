@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+from comfy_api.v0_0_2 import io
 
 
 class FakeEngine:
@@ -142,6 +143,30 @@ def test_flash_generation_is_native_and_uses_fixed_recipe(plugin):
     assert (metadata["nfe_steps"], metadata["cfg_strength"], metadata["sway_sampling_coef"]) == (4, 0.0, -1.0)
 
 
+def test_tts_auto_duration_matches_verified_short_phrase(plugin):
+    engine = FakeEngine()
+    result = plugin.nodes.AuKGenerateEdit.execute(
+        engine,
+        "描述生成语音",
+        "一只小猫在叫啊",
+        "自然、清晰、温暖",
+        3.0,
+        42,
+        duration_mode=plugin.duration.AUTO_DURATION_MODE,
+    )
+    metadata = json.loads(result.result[2])
+    assert engine.call[2] == 1.7
+    assert metadata["generation_seconds"] == 1.7
+    assert metadata["requested_generation_seconds"] == 3.0
+    assert metadata["duration_strategy"] == "auto_text"
+
+
+def test_seed_widget_randomizes_after_generation_by_default(plugin):
+    schema = plugin.nodes.AuKGenerateEdit.define_schema()
+    seed = next(value for value in schema.inputs if value.id == "seed")
+    assert seed.control_after_generate == io.ControlAfterGenerate.randomize
+
+
 def test_audio_generation_passes_mono_audio_to_engine(plugin):
     engine = FakeEngine()
     source = {"waveform": torch.ones(1, 2, 8_000), "sample_rate": 16_000}
@@ -190,6 +215,7 @@ def test_manual_duration_task_keeps_requested_duration(plugin):
         2.5,
         42,
         input_audio=source,
+        duration_mode=plugin.duration.MANUAL_DURATION_MODE,
     )
     assert engine.call[2] == 2.5
 
@@ -256,7 +282,7 @@ def test_native_engine_seed_covers_reference_encoding_and_restores_rng(plugin):
     engine.device = torch.device("cpu")
     engine.lock = threading.Lock()
     engine.inference = SimpleNamespace(target_sample_rate=24_000)
-    engine.get_models = lambda: []
+    engine.get_models = list
     engine._encode_reference = lambda _audio, _callback: (torch.randn(1, 1, 1), torch.ones(1, dtype=torch.long))
     engine._encode_text = lambda _messages, _callback: (torch.zeros(1), torch.ones(1, dtype=torch.bool))
     engine._sample_latents = lambda ref, *_args: ref

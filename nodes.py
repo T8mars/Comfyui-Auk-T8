@@ -15,6 +15,12 @@ from comfy.utils import ProgressBar
 from comfy_api.v0_0_2 import ComfyExtension, io
 from omegaconf import OmegaConf
 
+from .duration import (
+    AUTO_DURATION_MODE,
+    MANUAL_DURATION_MODE,
+    TTS_TASK_KEYS,
+    estimate_tts_seconds,
+)
 from .runtime import (
     MAX_SEQUENCE_SECONDS,
     QWEN_AUDIO_SAMPLE_RATE,
@@ -171,6 +177,8 @@ def resolve_generation_seconds(
     audio: tuple[torch.Tensor, int] | None,
     requested_seconds: float,
     primary: str,
+    task_key: str | None = None,
+    duration_mode: str = MANUAL_DURATION_MODE,
 ) -> float:
     """Resolve the output duration while preserving source length for fixed-length edits."""
     if duration_strategy == "source":
@@ -182,6 +190,8 @@ def resolve_generation_seconds(
             raise ValueError("速度编辑需要输入音频")
         target_frames = math.ceil(source_latent_frames(engine, audio) / parse_speed_multiplier(primary))
         return latent_frames_to_seconds(engine, target_frames)
+    if task_key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE:
+        return estimate_tts_seconds(primary, max_seconds=MAX_SEQUENCE_SECONDS)
     return float(requested_seconds)
 
 
@@ -218,8 +228,15 @@ class AuKModelLoader(io.ComfyNode):
         resolved_device = resolve_device(device)
         resolved_dtype = resolve_dtype(dtype, resolved_device)
         logger.info("Loading %s on %s (%s)", model_variant, resolved_device, resolved_dtype)
+        progress = ProgressBar(4)
+        load_steps = {"config": 1, "qwen": 2, "vae": 3, "auk": 4}
+
+        def load_progress(phase: str) -> None:
+            model_management.throw_exception_if_processing_interrupted()
+            progress.update_absolute(load_steps[phase])
+
         try:
-            engine = AuKEngine(checkpoint, config, qwen, resolved_device, resolved_dtype)
+            engine = AuKEngine(checkpoint, config, qwen, resolved_device, resolved_dtype, load_progress)
         except ModuleNotFoundError as exc:
             raise RuntimeError(
                 f"缺少 AuK 运行依赖 {exc.name!r}；请用 ComfyUI 的 Python 执行 pip install -r requirements.txt"
@@ -268,7 +285,7 @@ class AuKGenerateEdit(io.ComfyNode):
                     default=42,
                     min=0,
                     max=0x7FFFFFFFFFFFFFFF,
-                    control_after_generate=io.ControlAfterGenerate.fixed,
+                    control_after_generate=io.ControlAfterGenerate.randomize,
                 ),
                 io.Audio.Input("input_audio", display_name="输入 / 参考音频", optional=True),
                 io.Int.Input("nfe_steps", display_name="NFE 步数", default=32, min=4, max=64, advanced=True),
@@ -289,6 +306,13 @@ class AuKGenerateEdit(io.ComfyNode):
                     max=1.0,
                     step=0.1,
                     advanced=True,
+                ),
+                io.Combo.Input(
+                    "duration_mode",
+                    display_name="TTS 时长模式",
+                    options=[AUTO_DURATION_MODE, MANUAL_DURATION_MODE],
+                    default=AUTO_DURATION_MODE,
+                    tooltip="自动估算可减少短文本因目标时长过长而在结尾读出内部提示词；非 TTS 任务仍按任务规则处理。",
                 ),
             ],
             outputs=[
@@ -311,6 +335,7 @@ class AuKGenerateEdit(io.ComfyNode):
         nfe_steps: int = 32,
         cfg_strength: float = 2.0,
         sway_sampling_coef: float = -1.0,
+        duration_mode: str = AUTO_DURATION_MODE,
     ) -> io.NodeOutput:
         if task not in TASK_BY_LABEL:
             raise ValueError(f"未知任务：{task}")
@@ -327,6 +352,8 @@ class AuKGenerateEdit(io.ComfyNode):
             audio,
             requested_seconds,
             primary,
+            template.key,
+            duration_mode,
         )
         validate_sequence_duration(engine, audio, target_seconds)
         if engine.is_flash:
@@ -342,16 +369,29 @@ class AuKGenerateEdit(io.ComfyNode):
             content.append({"type": "audio", "audio": qwen_waveform.squeeze(0).contiguous().numpy()})
         messages = [{"role": "user", "content": content}]
 
-        progress = ProgressBar(4)
-        phase_count = 0
+        progress = ProgressBar(100)
+        progress.update_absolute(1)
+        current_phase = "preparing"
+        sampling_updates = 0
+        phase_progress = {
+            "encoding_reference": 12,
+            "encoding_instruction": 28,
+            "sampling": 42,
+            "decoding": 92,
+        }
 
-        def phase_callback(_phase: str) -> None:
-            nonlocal phase_count
-            phase_count += 1
-            progress.update_absolute(min(phase_count, 4))
+        def phase_callback(phase: str) -> None:
+            nonlocal current_phase
+            current_phase = phase
+            progress.update_absolute(phase_progress.get(phase, progress.current))
 
         def interrupt_callback() -> None:
+            nonlocal sampling_updates
             model_management.throw_exception_if_processing_interrupted()
+            if current_phase == "sampling":
+                sampling_updates += 1
+                sampling_total = max(1, int(nfe_steps))
+                progress.update_absolute(min(90, 42 + math.ceil(48 * sampling_updates / sampling_total)))
 
         started = time.perf_counter()
         waveform, sample_rate = engine.generate(
@@ -365,7 +405,10 @@ class AuKGenerateEdit(io.ComfyNode):
             interrupt_callback,
             phase_callback,
         )
-        progress.update_absolute(4)
+        progress.update_absolute(100)
+        effective_duration_strategy = (
+            "auto_text" if template.key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE else template.duration_strategy
+        )
         metadata = {
             "model": engine.model_variant,
             "device": str(engine.device),
@@ -374,7 +417,8 @@ class AuKGenerateEdit(io.ComfyNode):
             "seed": int(seed),
             "generation_seconds": target_seconds,
             "requested_generation_seconds": requested_seconds,
-            "duration_strategy": template.duration_strategy,
+            "duration_strategy": effective_duration_strategy,
+            "duration_mode": duration_mode,
             "sample_rate": int(sample_rate),
             "actual_output_seconds": waveform.shape[-1] / int(sample_rate),
             "nfe_steps": int(nfe_steps),

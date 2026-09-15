@@ -1,6 +1,6 @@
 [project]
 name = "auk-t8"
-version = "2.0.2"
+version = "2.0.3"
 description = "Native ComfyUI V3 nodes for AuK speech generation and editing."
 readme = "README.md"
 requires-python = ">=3.10"

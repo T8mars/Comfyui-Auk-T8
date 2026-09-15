@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+from collections.abc import Callable
 
 import torch
 import torchaudio
@@ -32,6 +33,7 @@ class AukInfer:
         qwen_path: str | None = None,
         cpu_offload: bool = False,
         defer_to_cpu: bool = False,
+        load_progress: Callable[[str], None] | None = None,
     ):
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype = _DTYPE_MAP.get(dtype, torch.bfloat16)
@@ -44,6 +46,8 @@ class AukInfer:
         load_device = "cpu" if cpu_offload or defer_to_cpu else self.device
 
         config = OmegaConf.load(config_path)
+        if load_progress is not None:
+            load_progress("config")
         if qwen_path:
             config.model.text_encoder.text_encoder_path = qwen_path
         # the VAE ships next to the checkpoint as vae.safetensors; use it if present, else keep config's path
@@ -79,6 +83,8 @@ class AukInfer:
             thinker.visual = None
         text_encoder = thinker
         text_processor = Qwen2_5OmniProcessor.from_pretrained(text_encoder_config.text_encoder_path, use_fast=False)
+        if load_progress is not None:
+            load_progress("qwen")
 
         # --- VAE model ---
         logger.info(f"Loading VAE from {vae_config.vae_model_path} ...")
@@ -96,6 +102,8 @@ class AukInfer:
         vae_model = vae_model.to("cpu" if defer_to_cpu else self.device).eval()
         vae_model.requires_grad_(False)
         self.vae_model = vae_model
+        if load_progress is not None:
+            load_progress("vae")
 
         # build CFMEdit (VAE-latent); Flux2Edit is the only supported backbone
         model_arc = OmegaConf.to_container(config.model.arch, resolve=True)
@@ -122,6 +130,8 @@ class AukInfer:
         self._load_ema_weights(model, ckpt_path)
         self.model = model.to(load_device)
         self.model.eval()
+        if load_progress is not None:
+            load_progress("auk")
 
         if cpu_offload:
             from accelerate import cpu_offload_with_hook

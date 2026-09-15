@@ -26,7 +26,15 @@ class _ManagedComponent(torch.nn.Module):
 class AuKEngine:
     """AuK components managed by ComfyUI and kept on CPU between stages."""
 
-    def __init__(self, checkpoint: Path, config: Path, qwen: Path, device: torch.device, dtype: str):
+    def __init__(
+        self,
+        checkpoint: Path,
+        config: Path,
+        qwen: Path,
+        device: torch.device,
+        dtype: str,
+        load_progress: Callable[[str], None] | None = None,
+    ):
         from .auk_core.infer.infer_auk import AukInfer
 
         self.device = device
@@ -39,6 +47,7 @@ class AuKEngine:
             dtype=dtype,
             qwen_path=str(qwen),
             defer_to_cpu=True,
+            load_progress=load_progress,
         )
         cpu = torch.device("cpu")
         self.vae_component = _ManagedComponent(self.inference.vae_model)
