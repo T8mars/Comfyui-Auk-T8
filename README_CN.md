@@ -4,7 +4,7 @@
 
 在 ComfyUI 进程内直接运行 AuK 语音生成与编辑
 
-[English](README.md) · [模型仓库](https://huggingface.co/t8star/Auk-Comfy) · [独立本地整合包](https://pan.quark.cn/s/264edb7e36bd)
+[English](README.md) · [模型仓库](https://huggingface.co/t8star/Auk-Comfy) · [Windows 完整版 / 海外下载](https://huggingface.co/t8star/Auk-Comfy/resolve/main/AuK-Local.rar?download=true)
 
 </div>
 
@@ -93,6 +93,8 @@ Flash + Qwen 约需 18.7 GB，两种 AuK 模型与 Qwen 全部下载约需 25.5 
 > 2.0.6 使用官方 Silero 未加缓冲语音时长和 LUFS 规则；严格规范非语言声、音质修复与说话人顺序输入；选择任务时直接显示对应的官方用法。
 
 ## 独立本地整合包
+
+**AuK Local Windows 完整版（含模型和 Python）：[Hugging Face 海外下载 — AuK-Local.rar](https://huggingface.co/t8star/Auk-Comfy/resolve/main/AuK-Local.rar?download=true)**，大小 20.37 GB（18.97 GiB）。完整解压后，双击 `AuK-Local` 文件夹中的 `AuK-Local.exe`。AuK Local 的 GitHub Release ZIP 仅包含程序更新文件。
 
 [AuK Local 一键整合包](https://pan.quark.cn/s/264edb7e36bd)继续提供独立的浅色网页工作台，自带 Python、模型管理、任务记录和启动脚本。它不再是本 ComfyUI 节点的运行前置条件。
 

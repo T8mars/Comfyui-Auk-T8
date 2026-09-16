@@ -4,7 +4,7 @@
 
 Run AuK speech generation and editing directly inside ComfyUI
 
-[中文说明](README_CN.md) · [Model repository](https://huggingface.co/t8star/Auk-Comfy) · [Standalone local package](https://pan.quark.cn/s/264edb7e36bd)
+[中文说明](README_CN.md) · [Model repository](https://huggingface.co/t8star/Auk-Comfy) · [Complete Windows package / overseas](https://huggingface.co/t8star/Auk-Comfy/resolve/main/AuK-Local.rar?download=true)
 
 </div>
 
@@ -93,6 +93,8 @@ Source/reference audio and generated output are each limited to 30 seconds indep
 > Version 2.0.6 uses official unpadded Silero speech duration and LUFS handling, validates nonverbal/quality/speaker-order requests before inference, and displays the matching official guide inside the node.
 
 ## Standalone local package
+
+**Complete AuK Local Windows package (models and Python included): [Hugging Face overseas download — AuK-Local.rar](https://huggingface.co/t8star/Auk-Comfy/resolve/main/AuK-Local.rar?download=true)**, 20.37 GB (18.97 GiB). Fully extract it and double-click `AuK-Local.exe` in the `AuK-Local` folder. GitHub AuK Local Release ZIPs contain program updates only.
 
 The [AuK Local one-click package](https://pan.quark.cn/s/264edb7e36bd) remains a separate light-themed web workstation with its own Python runtime, model management, task history, and launch scripts. It is no longer a runtime prerequisite for these ComfyUI nodes.
 
