@@ -216,3 +216,24 @@ def limit_vocal_output(waveform, task_key: str, sample_rate: int = 24_000):
         output *= PEAK_CEILING / peak
         applied = True
     return output.to(dtype=waveform.dtype), applied
+
+
+def protect_audio_output(waveform):
+    """Reject invalid model output and prevent integer audio exporters clipping.
+
+    Normal output, including quiet whispers, keeps its original gain. Only
+    peaks outside the standard AUDIO range are scaled to a 0.99 ceiling.
+    """
+    import torch
+
+    if not torch.is_tensor(waveform) or waveform.ndim != 2 or min(waveform.shape) < 1:
+        raise ValueError("模型输出必须是非空 [C, T] 音频")
+    if not torch.isfinite(waveform).all():
+        raise ValueError("模型输出包含 NaN 或 Inf；请更换 Seed 后重试")
+    peak = float(waveform.abs().max())
+    gain = 0.99 / peak if peak > 1.0 else 1.0
+    return waveform * gain if gain != 1.0 else waveform, {
+        "applied": gain != 1.0,
+        "peak_before": peak,
+        "gain_db": 20 * math.log10(gain),
+    }

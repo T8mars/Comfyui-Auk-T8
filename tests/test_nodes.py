@@ -36,10 +36,10 @@ class FakeEngine:
         return torch.zeros(1, 24_000), 24_000
 
 
-def test_v3_extension_registers_two_native_nodes(plugin):
+def test_v3_extension_registers_native_nodes(plugin):
     extension = asyncio.run(plugin.comfy_entrypoint())
     classes = asyncio.run(extension.get_node_list())
-    assert [node.__name__ for node in classes] == ["AuKModelLoader", "AuKGenerateEdit"]
+    assert [node.__name__ for node in classes] == ["AuKModelLoader", "AuKGenerateEdit", "AuKAudioTrim"]
 
 
 def test_web_task_guide_covers_every_visible_task(plugin):
@@ -56,7 +56,7 @@ def test_web_task_guide_covers_every_visible_task(plugin):
         assert entry["requirement"] == guide.requirement
         assert entry["example"] == guide.example
         assert entry["note"] == guide.note
-    script = (root / "web" / "js" / "auk_task_guide.js").read_text(encoding="utf-8")
+    script = (root / "web" / "js" / "auk_task_controls.js").read_text(encoding="utf-8")
     assert "loadedGraphNode" in script
     assert "serialize: false" in script
 
@@ -233,7 +233,8 @@ def test_flash_generation_is_native_and_uses_fixed_recipe(plugin):
         nfe_steps=32,
         cfg_strength=2.0,
     )
-    audio, instruction, metadata_text = result.result
+    audio, instruction, metadata_text, applied_seconds = result.result
+    assert applied_seconds == 1.0
     assert audio["waveform"].shape == (1, 1, 24_000)
     assert audio["sample_rate"] == 24_000
     assert "测试文本" in instruction

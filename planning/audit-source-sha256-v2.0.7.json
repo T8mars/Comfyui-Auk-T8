@@ -1,0 +1,32 @@
+{
+  "version": "2.0.7",
+  "pytest_passed": 129,
+  "files": {
+    "auk_core/model/vae/bigvgan_flow_vae.py": "dbc5c10afc58524b27ac657bc5ad0880d85ed650ace878b567de156dbd0f7e35",
+    "duration.py": "f37497ac8fa4ccef92e85b21e4faa2cf8a3f7df05ec4f96c61d8b69933c65a8f",
+    "example_workflows/AuK-01-\u63cf\u8ff0\u751f\u6210\u8bed\u97f3.json": "1d76136085d55b9bf5e255acc2e07f9ee91d3630e1516a9ede7183bf95748fdc",
+    "example_workflows/AuK-02-\u53c2\u8003\u58f0\u97f3\u514b\u9686.json": "b15d4b3386f05abbb50bcbb67f07e92925b162d02b6b035c691488aa473ab5fc",
+    "example_workflows/AuK-03-\u8bed\u97f3\u6587\u5b57\u7f16\u8f91.json": "9fa50dbc0bebdd4b86097d983d7b1bb7087000f02af063c63bdf5688422ffd8d",
+    "example_workflows/AuK-04-\u6b4c\u8bcd\u7f16\u8f91.json": "8a20ff9afb1abb64c73f9edf377d303f683b34dc5a4915acd82f58624668d51a",
+    "example_workflows/AuK-05-\u97f3\u9ad8\u7f16\u8f91.json": "dc68167dbfd599d179e2a46e8a2ab3a916b55c965ee61a1532d0c29fa750144b",
+    "example_workflows/AuK-06-\u901f\u5ea6\u7f16\u8f91.json": "e4af86832c1be7ad0ca4265e79a991b56d2c1fb9cc578e5ac039b685fbb5a15c",
+    "example_workflows/AuK-07-\u97f3\u91cf\u7f16\u8f91.json": "55313505e8e4bb9871cfcd95fb0e0ce14b0140bce448285daeccbc3fee82e67c",
+    "example_workflows/AuK-08-\u60c5\u7eea\u7f16\u8f91.json": "ce268e40cbf4dc86b22968f1572098043269bf0336cc3d68455ef66bdc2db573",
+    "example_workflows/AuK-09-\u97f3\u8272\u7f16\u8f91.json": "bc55de30dd10c2ed0e9ccae34503dc3bdefd7fb70e9efe0c463d135ea830ea68",
+    "example_workflows/AuK-10-\u53bb\u53e3\u97f3.json": "7ea8bcd1f9edae8332620762c93d7f30e66dccb80568f938ba119ee9f5d9a990",
+    "example_workflows/AuK-11-\u975e\u8bed\u8a00\u58f0\u97f3\u7f16\u8f91.json": "31955788389ae5517a64cffe55ee55d1cc5f606ad9892f23036f4b2de76776d8",
+    "example_workflows/AuK-12-\u8033\u8bed\u8f6c\u6362.json": "4d5db050270e19aeea99326f318965e76d52f459cbbe28266456e62e5084aac5",
+    "example_workflows/AuK-13-\u8bed\u97f3\u589e\u5f3a.json": "fe985ec4d9bc1872ce5e1a126c1811b9514ef239199e001422fb7486a821cfa1",
+    "example_workflows/AuK-14-\u97f3\u8d28\u4fee\u590d.json": "9c0d0a295ce732738483ea6ef5ca5323bddae41ba34208c1bf2e46d65446004b",
+    "example_workflows/AuK-15-\u8bf4\u8bdd\u4eba\u5206\u79bb.json": "e33b8ffd76f10dabeca64c25706665d6a44104a3dd1ef7bb1d15f284460578fc",
+    "example_workflows/AuK-16-\u97f3\u4e50\u4eba\u58f0\u63d0\u53d6.json": "4147a47604b7650cce4e5cb2db2776e83ff82005de0ad1fd0c2bf093b5999063",
+    "example_workflows/AuK-17-\u6307\u5b9a\u8bf4\u8bdd\u4eba\u63d0\u53d6.json": "e68e86cad3e2eef869b92d415f5a3514133375b28d205d91ad978febe299025f",
+    "nodes.py": "50829576bf303fb9ee36a27c49400250844fb64d72ceb54f0f706939b388dcbc",
+    "preprocess.py": "aecd2d6050e6261e27403bc1a8ada92d3563602ca1acf4124e33bbee609e812b",
+    "pyproject.toml": "052cce23362eda86698e05e59efe3f1e7b292f6bb938a89c5ab6cd086c03edcb",
+    "runtime.py": "63cb87d11d39e3f8f4667b8ba0c1ad9e9fc55ef186c691d29b1ac64405909fe3",
+    "task_templates.py": "f22644663e47bc0050d4e5e970ceb3118a016328b608ae4a82ce3309ce3f0e81",
+    "web/js/auk_task_controls.js": "bf7473cda7a61cfda74cc1af2b8c8eeee10376320216a9a23d8283f1eb9291ca",
+    "web/task_guides.json": "5ff0df2c61e87a01f98590a06caf5f0d7ba2c3043d8137bbf74cf9d117f41501"
+  }
+}

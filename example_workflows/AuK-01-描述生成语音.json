@@ -28,7 +28,9 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "AuKModelLoader"
+        "Node name for S&R": "AuKModelLoader",
+        "cnr_id": "auk-t8",
+        "ver": "2.0.7"
       },
       "widgets_values": [
         "AuK Base",
@@ -45,7 +47,7 @@
       ],
       "size": [
         520,
-        430
+        640
       ],
       "flags": {},
       "order": 1,
@@ -84,10 +86,18 @@
           "type": "STRING",
           "links": null,
           "slot_index": 2
+        },
+        {
+          "name": "实际目标时长（秒）",
+          "type": "FLOAT",
+          "links": null,
+          "slot_index": 3
         }
       ],
       "properties": {
-        "Node name for S&R": "AuKGenerateEdit"
+        "Node name for S&R": "AuKGenerateEdit",
+        "cnr_id": "auk-t8",
+        "ver": "2.0.7"
       },
       "widgets_values": [
         "描述生成语音",
@@ -99,7 +109,7 @@
         32,
         2.0,
         -1.0,
-        "自动估算（TTS 推荐）"
+        "自动适配（按任务规则）"
       ]
     },
     {

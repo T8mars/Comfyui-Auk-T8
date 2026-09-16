@@ -1,6 +1,6 @@
 {
-  "last_node_id": 5,
-  "last_link_id": 4,
+  "last_node_id": 6,
+  "last_link_id": 5,
   "nodes": [
     {
       "id": 1,
@@ -28,7 +28,9 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "AuKModelLoader"
+        "Node name for S&R": "AuKModelLoader",
+        "cnr_id": "auk-t8",
+        "ver": "2.0.7"
       },
       "widgets_values": [
         "AuK Base",
@@ -41,7 +43,7 @@
       "type": "LoadAudio",
       "pos": [
         40,
-        340
+        290
       ],
       "size": [
         390,
@@ -86,10 +88,10 @@
       ],
       "size": [
         520,
-        430
+        640
       ],
       "flags": {},
-      "order": 2,
+      "order": 3,
       "mode": 0,
       "inputs": [
         {
@@ -100,7 +102,7 @@
         {
           "name": "input_audio",
           "type": "AUDIO",
-          "link": 2,
+          "link": 5,
           "shape": 7
         }
       ],
@@ -125,10 +127,18 @@
           "type": "STRING",
           "links": null,
           "slot_index": 2
+        },
+        {
+          "name": "实际目标时长（秒）",
+          "type": "FLOAT",
+          "links": null,
+          "slot_index": 3
         }
       ],
       "properties": {
-        "Node name for S&R": "AuKGenerateEdit"
+        "Node name for S&R": "AuKGenerateEdit",
+        "cnr_id": "auk-t8",
+        "ver": "2.0.7"
       },
       "widgets_values": [
         "去口音",
@@ -140,7 +150,7 @@
         32,
         2.0,
         -1.0,
-        "自动估算（TTS 推荐）"
+        "自动适配（按任务规则）"
       ]
     },
     {
@@ -155,7 +165,7 @@
         90
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [
         {
@@ -191,7 +201,7 @@
         150
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
@@ -214,6 +224,59 @@
       "widgets_values": [
         "auk/去口音"
       ]
+    },
+    {
+      "id": 6,
+      "type": "AuKAudioTrim",
+      "pos": [
+        40,
+        540
+      ],
+      "size": [
+        390,
+        150
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "裁剪音频",
+          "type": "AUDIO",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "裁剪时长（秒）",
+          "type": "FLOAT",
+          "links": null,
+          "slot_index": 1
+        },
+        {
+          "name": "裁剪说明",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AuKAudioTrim",
+        "cnr_id": "auk-t8",
+        "ver": "2.0.7"
+      },
+      "widgets_values": [
+        0.0,
+        0.0
+      ]
     }
   ],
   "links": [
@@ -229,8 +292,8 @@
       2,
       2,
       0,
-      3,
-      1,
+      6,
+      0,
       "AUDIO"
     ],
     [
@@ -247,6 +310,14 @@
       0,
       5,
       0,
+      "AUDIO"
+    ],
+    [
+      5,
+      6,
+      0,
+      3,
+      1,
       "AUDIO"
     ]
   ],

@@ -409,7 +409,7 @@ class BigVGANFlowVAE(nn.Module):
         latents = latents.float()
         return latents * torch.sqrt(self.global_log_std.float()) + self.global_mean.float()
 
-    def inference_from_latents(self, x):
+    def inference_from_latents(self, x, *, clamp_output=True):
         assert x.size(1) == self.h.latent_dim, f"Input must be like [B, D, H], got {x.shape}"
 
         # pre conv
@@ -431,7 +431,8 @@ class BigVGANFlowVAE(nn.Module):
         # post conv
         x = self.activation_post(x)
         x = self.conv_post(x)
-        x = torch.clamp(x, min=-1.0, max=1.0)
+        if clamp_output:
+            x = torch.clamp(x, min=-1.0, max=1.0)
         return x
 
     def remove_weight_norm(self):

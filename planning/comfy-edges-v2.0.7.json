@@ -1,0 +1,155 @@
+{
+  "version": "2.0.7",
+  "started_at": 1789549423.7362185,
+  "cases": [
+    {
+      "key": "speed_cropped4",
+      "state": "succeeded",
+      "prompt_id": "6cefc876-e8ec-456a-b98c-9991a1128de5",
+      "seconds": 2.96,
+      "metadata": {
+        "model": "AuK Base",
+        "device": "cuda:0",
+        "dtype": "bf16",
+        "task": "speed",
+        "seed": 20260916,
+        "generation_seconds": 2.9599999999999995,
+        "requested_generation_seconds": 12.4,
+        "duration_strategy": "speed",
+        "duration_mode": "自动适配（按任务规则）",
+        "original_input_seconds": 4.0,
+        "prepared_input_seconds": 3.778,
+        "input_preprocessing": {
+          "method": "official_silero_vad_lufs",
+          "vad_engine": "silero",
+          "source_frames_before": 96000,
+          "source_frames_after": 90672,
+          "speech_seconds_unpadded": 3.678,
+          "vad_speech_bounds_sec": [
+            0.322,
+            4.0
+          ],
+          "vad_trim_bounds_sec": [
+            0.222,
+            4.0
+          ],
+          "whisper_level_method": null,
+          "whisper_target_lufs": null,
+          "whisper_measured_lufs_before": null,
+          "whisper_target_rms": null,
+          "whisper_measured_rms_before": null
+        },
+        "vocal_output_peak_limited": false,
+        "sample_rate": 24000,
+        "actual_output_seconds": 2.96,
+        "nfe_steps": 32,
+        "cfg_strength": 2.0,
+        "sway_sampling_coef": -1.0,
+        "elapsed_seconds": 26.306,
+        "runtime": "native_comfyui",
+        "model_revision": "790742b71a4430120daf2b2099192abae449eb9f",
+        "qwen_revision": "f75b40e3da2003cdd6e1829b1f420ca70797c34e"
+      },
+      "sha256": "5c93f456a73fb7b5cbe909320211f5bfa98e06f7ccecba64b818844ac84094bd",
+      "progress_events": 47
+    },
+    {
+      "key": "manual_tts",
+      "state": "succeeded",
+      "prompt_id": "8448eca6-1368-4241-88ee-e0c36c288194",
+      "seconds": 3.0,
+      "metadata": {
+        "model": "AuK Base",
+        "device": "cuda:0",
+        "dtype": "bf16",
+        "task": "instruct_tts",
+        "seed": 20260916,
+        "generation_seconds": 3.0,
+        "requested_generation_seconds": 3.0,
+        "duration_strategy": "tts",
+        "duration_mode": "手动指定",
+        "original_input_seconds": 0.0,
+        "prepared_input_seconds": 0.0,
+        "input_preprocessing": null,
+        "vocal_output_peak_limited": false,
+        "sample_rate": 24000,
+        "actual_output_seconds": 3.0,
+        "nfe_steps": 32,
+        "cfg_strength": 2.0,
+        "sway_sampling_coef": -1.0,
+        "elapsed_seconds": 21.355,
+        "runtime": "native_comfyui",
+        "model_revision": "790742b71a4430120daf2b2099192abae449eb9f",
+        "qwen_revision": "f75b40e3da2003cdd6e1829b1f420ca70797c34e"
+      },
+      "sha256": "275c5e57ec89ddeab78b3e4e43e3d33084a4c9c7912e81e70a704f3ed5506b63",
+      "progress_events": 28
+    },
+    {
+      "key": "input30_output30",
+      "state": "succeeded",
+      "prompt_id": "f6f28845-0453-4a0a-a697-8e42ec105d7b",
+      "seconds": 30.0,
+      "metadata": {
+        "model": "AuK Base",
+        "device": "cuda:0",
+        "dtype": "bf16",
+        "task": "enhance",
+        "seed": 20260916,
+        "generation_seconds": 29.999999999999996,
+        "requested_generation_seconds": 12.4,
+        "duration_strategy": "source",
+        "duration_mode": "自动适配（按任务规则）",
+        "original_input_seconds": 30.0,
+        "prepared_input_seconds": 30.0,
+        "input_preprocessing": {
+          "method": "official_rules_with_energy_fallback",
+          "vad_engine": "skipped",
+          "source_frames_before": 720000,
+          "source_frames_after": 720000,
+          "speech_seconds_unpadded": 30.0,
+          "vad_speech_bounds_sec": null,
+          "vad_trim_bounds_sec": null,
+          "whisper_level_method": null,
+          "whisper_target_lufs": null,
+          "whisper_measured_lufs_before": null,
+          "whisper_target_rms": null,
+          "whisper_measured_rms_before": null
+        },
+        "vocal_output_peak_limited": false,
+        "sample_rate": 24000,
+        "actual_output_seconds": 30.0,
+        "nfe_steps": 32,
+        "cfg_strength": 2.0,
+        "sway_sampling_coef": -1.0,
+        "elapsed_seconds": 60.1,
+        "runtime": "native_comfyui",
+        "model_revision": "790742b71a4430120daf2b2099192abae449eb9f",
+        "qwen_revision": "f75b40e3da2003cdd6e1829b1f420ca70797c34e"
+      },
+      "sha256": "6ff30c6eea890d2a4c70c16e7942dd8da7af5292ad39cb49bbee50a696f6472e",
+      "progress_events": 46
+    },
+    {
+      "key": "one_extra_sample_rejected",
+      "state": "expected_error_verified",
+      "error": "{\"status_str\": \"error\", \"completed\": false, \"messages\": [[\"execution_start\", {\"prompt_id\": \"01d8f2c9-d8ba-4bd1-b76e-1b2eb25d9388\", \"timestamp\": 1789549577673}], [\"execution_cached\", {\"nodes\": [], \"prompt_id\": \"01d8f2c9-d8ba-4bd1-b76e-1b2eb25d9388\", \"timestamp\": 1789549577681}], [\"execution_error\", {\"prompt_id\": \"01d8f2c9-d8ba-4bd1-b76e-1b2eb25d9388\", \"node_id\": \"3\", \"node_type\": \"AuKGenerateEdit\", \"executed\": [\"2\", \"6\", \"1\"], \"exception_message\": \"输入音频 30.000042s 超过 AuK 的 30s 限制；请先用音频裁剪节点截取\\n\", \"exception_type\": \"ValueError\", \"traceback\": [\"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 536, in execute\\n    output_data, output_ui, has_subgraph, has_pending_tasks = await get_output_data(prompt_id, unique_id, obj, input_data_all, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 336, in get_output_data\\n    return_values = await _async_map_node_over_list(prompt_id, unique_id, obj, input_data_all, obj.FUNCTION, allow_interrupt=True, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 310, in _async_map_node_over_list\\n    await process_inputs(input_dict, i)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 298, in process_inputs\\n    result = f(**inputs)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\comfy_api\\\\internal\\\\__init__.py\\\", line 149, in wrapped_func\\n    return method(locked_class, **inputs)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\comfy_api\\\\latest\\\\_io.py\\\", line 1880, in EXECUTE_NORMALIZED\\n    to_return = cls.execute(*args, **kwargs)\\n\", \"  File \\\"E:\\\\auk\\\\comfy-native-smoke\\\\custom_nodes\\\\Comfyui-Auk-T8\\\\nodes.py\\\", line 406, in execute\\n    validate_sequence_duration(engine, audio, 0.2)\\n\", \"  File \\\"E:\\\\auk\\\\comfy-native-smoke\\\\custom_nodes\\\\Comfyui-Auk-T8\\\\runtime.py\\\", line 334, in validate_sequence_duration\\n    raise ValueError(f\\\"输入音频 {checked_seconds:.6f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制；请先用音频裁剪节点截取\\\")\\n\"], \"current_inputs\": {\"engine\": [\"<E:\\\\auk\\\\comfy-native-smoke\\\\custom_nodes\\\\Comfyui-Auk-T8.runtime.AuKEngine object at 0x000001E29C6A74F0>\"], \"task\": [\"语音增强\"], \"primary\": [\"去噪\"], \"secondary\": [\"\"], \"generation_seconds\": [12.4], \"seed\": [20260916], \"nfe_steps\": [32], \"cfg_strength\": [2.0], \"sway_sampling_coef\": [-1.0], \"duration_mode\": [\"自动适配（按任务规则）\"], \"input_audio\": [\"{'waveform': tensor([[[-3.0518e-05, -3.0518e-05, -3.0518e-05, -3.0518e-05, -3.0518e-05,\\n          -3.0518e-05,  ..., -5.4321e-03, -5.3406e-03, -5.9204e-03,\\n          -5.5237e-03, -4.7607e-03, -4.5166e-03],\\n         [-3.0518e-05,  0.0000e+00, -3.0518e-05, -3.0518e-05, -3.0518e-05,\\n          -3.0518e-05,  ..., -3.2043e-03, -3.1128e-03, -3.7231e-03,\\n          -3.3264e-03, -2.5635e-03, -2.3499e-03]]]), 'sample_rate': 24000}\"]}, \"current_outputs\": [\"2\", \"5\", \"8\", \"3\", \"7\", \"1\", \"6\"], \"timestamp\": 1789549592912}]]}"
+    },
+    {
+      "key": "invalid_trim_rejected",
+      "state": "expected_error_verified",
+      "error": "{\"status_str\": \"error\", \"completed\": false, \"messages\": [[\"execution_start\", {\"prompt_id\": \"513e7546-623d-4828-8509-9b2bdb595a63\", \"timestamp\": 1789549593145}], [\"execution_cached\", {\"nodes\": [], \"prompt_id\": \"513e7546-623d-4828-8509-9b2bdb595a63\", \"timestamp\": 1789549593158}], [\"execution_error\", {\"prompt_id\": \"513e7546-623d-4828-8509-9b2bdb595a63\", \"node_id\": \"6\", \"node_type\": \"AuKAudioTrim\", \"executed\": [\"2\"], \"exception_message\": \"裁剪范围无效：原音频 48.000s；结束必须大于开始，且开始不能超出音频\\n\", \"exception_type\": \"ValueError\", \"traceback\": [\"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 536, in execute\\n    output_data, output_ui, has_subgraph, has_pending_tasks = await get_output_data(prompt_id, unique_id, obj, input_data_all, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 336, in get_output_data\\n    return_values = await _async_map_node_over_list(prompt_id, unique_id, obj, input_data_all, obj.FUNCTION, allow_interrupt=True, execution_block_cb=execution_block_cb, pre_execute_cb=pre_execute_cb, v3_data=v3_data)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 310, in _async_map_node_over_list\\n    await process_inputs(input_dict, i)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\execution.py\\\", line 298, in process_inputs\\n    result = f(**inputs)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\comfy_api\\\\internal\\\\__init__.py\\\", line 149, in wrapped_func\\n    return method(locked_class, **inputs)\\n\", \"  File \\\"E:\\\\auk\\\\comfyui-v0.23.0-source\\\\comfy_api\\\\latest\\\\_io.py\\\", line 1880, in EXECUTE_NORMALIZED\\n    to_return = cls.execute(*args, **kwargs)\\n\", \"  File \\\"E:\\\\auk\\\\comfy-native-smoke\\\\custom_nodes\\\\Comfyui-Auk-T8\\\\nodes.py\\\", line 547, in execute\\n    first = round(start * sample_rate)\\n\"], \"current_inputs\": {\"audio\": [\"{'waveform': tensor([[[-3.0518e-05, -3.0518e-05, -3.0518e-05, -3.0518e-05, -3.0518e-05,\\n          -3.0518e-05,  ...,  4.2725e-04, -1.8311e-04,  0.0000e+00,\\n           3.0518e-04,  6.4087e-04,  1.7090e-03],\\n         [-3.0518e-05,  0.0000e+00, -3.0518e-05, -3.0518e-05, -3.0518e-05,\\n          -3.0518e-05,  ..., -2.1362e-04, -7.3242e-04, -5.1880e-04,\\n          -1.2207e-04,  4.2725e-04,  1.6785e-03]]]), 'sample_rate': 24000}\"], \"start_seconds\": [4.0], \"end_seconds\": [2.0]}, \"current_outputs\": [\"2\", \"5\", \"8\", \"7\", \"6\"], \"timestamp\": 1789549593817}]]}"
+    },
+    {
+      "key": "trim_recovers_after_error",
+      "state": "succeeded",
+      "prompt_id": "ab6c9a4b-7400-4474-a52b-27f746b6d7a4",
+      "seconds": 2.0,
+      "metadata": null,
+      "sha256": "a22dd06e1f1828c3784ff4b6ae0fe1a466d4d1f46478d173fc73d4f26f546b00",
+      "progress_events": 2
+    }
+  ],
+  "all_succeeded": true,
+  "finished_at": 1789549593.890815
+}

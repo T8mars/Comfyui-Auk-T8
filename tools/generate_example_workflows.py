@@ -50,12 +50,47 @@ def main() -> None:
             32,
             2.0,
             -1.0,
-            "自动估算（TTS 推荐）",
+            "自动适配（按任务规则）",
         ]
+        generator["size"] = [520, 640]
+        if not any(output.get("type") == "FLOAT" for output in generator["outputs"]):
+            generator["outputs"].append({
+                "name": "实际目标时长（秒）", "type": "FLOAT", "links": None, "slot_index": 3,
+            })
         saver["widgets_values"] = [f"auk/{save_name}"]
         if needs_audio:
             audio_loader = next(node for node in workflow["nodes"] if node["type"] == "LoadAudio")
             audio_loader["widgets_values"] = ["auk_input.wav"]
+            workflow["nodes"] = [node for node in workflow["nodes"] if node["type"] != "AuKAudioTrim"]
+            audio_loader["pos"] = [40, 290]
+            audio_loader["outputs"][0]["links"] = [2]
+            generator["inputs"][1]["link"] = 5
+            generator["order"] = 3
+            workflow["nodes"].append({
+                "id": 6, "type": "AuKAudioTrim", "pos": [40, 540], "size": [390, 150],
+                "flags": {}, "order": 2, "mode": 0,
+                "inputs": [{"name": "audio", "type": "AUDIO", "link": 2}],
+                "outputs": [
+                    {"name": "裁剪音频", "type": "AUDIO", "links": [5], "slot_index": 0},
+                    {"name": "裁剪时长（秒）", "type": "FLOAT", "links": None, "slot_index": 1},
+                    {"name": "裁剪说明", "type": "STRING", "links": None, "slot_index": 2},
+                ],
+                "properties": {"Node name for S&R": "AuKAudioTrim"},
+                "widgets_values": [0.0, 0.0],
+            })
+            workflow["links"] = [
+                [1, 1, 0, 3, 0, "AUK_ENGINE"], [2, 2, 0, 6, 0, "AUDIO"],
+                [3, 3, 0, 4, 0, "AUDIO"], [4, 3, 0, 5, 0, "AUDIO"], [5, 6, 0, 3, 1, "AUDIO"],
+            ]
+            workflow["last_node_id"], workflow["last_link_id"] = 6, 5
+            for node in workflow["nodes"]:
+                if node["type"] == "PreviewAudio":
+                    node["order"] = 4
+                elif node["type"] == "SaveAudio":
+                    node["order"] = 5
+        for node in workflow["nodes"]:
+            if node["type"].startswith("AuK"):
+                node["properties"].update({"cnr_id": "auk-t8", "ver": "2.0.7"})
         path = WORKFLOW_DIR / f"AuK-{number}-{label}.json"
         path.write_text(json.dumps(workflow, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

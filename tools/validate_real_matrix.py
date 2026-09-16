@@ -90,9 +90,9 @@ def main(argv: list[str] | None = None) -> int:
     manifest = nodes.load_manifest()["models"]
     engine.model_revision = manifest["AuK"]["revision"]
     engine.qwen_revision = manifest["Qwen2.5-Omni-3B"]["revision"]
-    output_root = ROOT / "planning" / "comfy-real-v2.0.6"
+    output_root = ROOT / "planning" / "comfy-real-v2.0.7"
     output_root.mkdir(parents=True, exist_ok=True)
-    report_path = ROOT / "planning" / "comfy-real-v2.0.6.json"
+    report_path = ROOT / "planning" / "comfy-real-v2.0.7.json"
     if args.append and report_path.is_file():
         report = json.loads(report_path.read_text(encoding="utf-8"))
         selected_names = {case[0] for case in selected}
@@ -117,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
                 sway_sampling_coef=-1.0,
                 duration_mode=nodes.AUTO_DURATION_MODE,
             ).result
-            output_audio, instruction, metadata_text = result
+            output_audio, instruction, metadata_text, _ = result
             output = output_audio["waveform"].squeeze(0).numpy()
             output_path = output_root / f"{key}.wav"
             sf.write(output_path, output.T, output_audio["sample_rate"], subtype="FLOAT")

@@ -1,0 +1,424 @@
+{
+  "prompt_id": "c5df6646-fc39-4824-a56a-abc11b967364",
+  "prompt": {
+    "1": {
+      "inputs": {
+        "model_variant": "AuK Base",
+        "device": "auto",
+        "dtype": "auto"
+      },
+      "class_type": "AuKModelLoader",
+      "_meta": {
+        "title": "AuK 模型加载器"
+      }
+    },
+    "2": {
+      "inputs": {
+        "audio": "output.wav",
+        "audioUI": "/api/view?filename=output.wav&type=input&subfolder=&rand=0.6493466766015787"
+      },
+      "class_type": "LoadAudio",
+      "_meta": {
+        "title": "加载音频"
+      }
+    },
+    "3": {
+      "inputs": {
+        "task": "速度编辑",
+        "primary": "1.25",
+        "secondary": "",
+        "generation_seconds": 3.0,
+        "seed": 42,
+        "nfe_steps": 32,
+        "cfg_strength": 2.0,
+        "sway_sampling_coef": -1.0,
+        "duration_mode": "自动适配（按任务规则）",
+        "engine": [
+          "1",
+          0
+        ],
+        "input_audio": [
+          "6",
+          0
+        ]
+      },
+      "class_type": "AuKGenerateEdit",
+      "_meta": {
+        "title": "AuK 生成 / 编辑"
+      }
+    },
+    "4": {
+      "inputs": {
+        "audioUI": "",
+        "audio": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "PreviewAudio",
+      "_meta": {
+        "title": "预览音频"
+      }
+    },
+    "5": {
+      "inputs": {
+        "filename_prefix": "auk/速度编辑",
+        "audioUI": "",
+        "audio": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "SaveAudio",
+      "_meta": {
+        "title": "保存音频"
+      }
+    },
+    "6": {
+      "inputs": {
+        "start_seconds": 0.0,
+        "end_seconds": 2.0,
+        "audio": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "AuKAudioTrim",
+      "_meta": {
+        "title": "AuK 音频裁剪 / 时长"
+      }
+    }
+  },
+  "workflow": {
+    "id": "6671ae72-3e95-4cb9-ac7c-1b0ff5dbf500",
+    "revision": 0,
+    "last_node_id": 6,
+    "last_link_id": 5,
+    "nodes": [
+      {
+        "id": 1,
+        "type": "AuKModelLoader",
+        "pos": [
+          40,
+          60
+        ],
+        "size": [
+          390,
+          150
+        ],
+        "flags": {},
+        "order": 0,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "AuK 模型",
+            "type": "AUK_ENGINE",
+            "slot_index": 0,
+            "links": [
+              1
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "AuKModelLoader",
+          "cnr_id": "auk-t8",
+          "ver": "2.0.7"
+        },
+        "widgets_values": [
+          "AuK Base",
+          "auto",
+          "auto"
+        ]
+      },
+      {
+        "id": 4,
+        "type": "PreviewAudio",
+        "pos": [
+          1090,
+          70
+        ],
+        "size": [
+          330,
+          90
+        ],
+        "flags": {},
+        "order": 4,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "audio",
+            "type": "AUDIO",
+            "link": 3
+          }
+        ],
+        "outputs": [
+          {
+            "name": "audio",
+            "type": "AUDIO",
+            "slot_index": 0,
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "PreviewAudio"
+        },
+        "widgets_values": []
+      },
+      {
+        "id": 5,
+        "type": "SaveAudio",
+        "pos": [
+          1090,
+          220
+        ],
+        "size": [
+          330,
+          150
+        ],
+        "flags": {},
+        "order": 5,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "audio",
+            "type": "AUDIO",
+            "link": 4
+          }
+        ],
+        "outputs": [
+          {
+            "name": "audio",
+            "type": "AUDIO",
+            "slot_index": 0,
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "SaveAudio"
+        },
+        "widgets_values": [
+          "auk/速度编辑"
+        ]
+      },
+      {
+        "id": 3,
+        "type": "AuKGenerateEdit",
+        "pos": [
+          500,
+          60
+        ],
+        "size": [
+          520,
+          640
+        ],
+        "flags": {},
+        "order": 3,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "engine",
+            "type": "AUK_ENGINE",
+            "link": 1
+          },
+          {
+            "name": "input_audio",
+            "shape": 7,
+            "type": "AUDIO",
+            "link": 5
+          }
+        ],
+        "outputs": [
+          {
+            "name": "生成音频",
+            "type": "AUDIO",
+            "slot_index": 0,
+            "links": [
+              3,
+              4
+            ]
+          },
+          {
+            "name": "最终指令",
+            "type": "STRING",
+            "slot_index": 1,
+            "links": null
+          },
+          {
+            "name": "运行参数 JSON",
+            "type": "STRING",
+            "slot_index": 2,
+            "links": null
+          },
+          {
+            "name": "实际目标时长（秒）",
+            "type": "FLOAT",
+            "slot_index": 3,
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "AuKGenerateEdit",
+          "cnr_id": "auk-t8",
+          "ver": "2.0.7"
+        },
+        "widgets_values": [
+          "速度编辑",
+          "1.25",
+          "",
+          3,
+          42,
+          "randomize",
+          32,
+          2,
+          -1,
+          "自动适配（按任务规则）"
+        ]
+      },
+      {
+        "id": 2,
+        "type": "LoadAudio",
+        "pos": [
+          40,
+          290
+        ],
+        "size": [
+          390,
+          150
+        ],
+        "flags": {},
+        "order": 1,
+        "mode": 0,
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "AUDIO",
+            "type": "AUDIO",
+            "slot_index": 0,
+            "links": [
+              2
+            ]
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "LoadAudio"
+        },
+        "widgets_values": [
+          "output.wav",
+          null,
+          null
+        ]
+      },
+      {
+        "id": 6,
+        "type": "AuKAudioTrim",
+        "pos": [
+          40,
+          540
+        ],
+        "size": [
+          390,
+          150
+        ],
+        "flags": {},
+        "order": 2,
+        "mode": 0,
+        "inputs": [
+          {
+            "name": "audio",
+            "type": "AUDIO",
+            "link": 2
+          }
+        ],
+        "outputs": [
+          {
+            "name": "裁剪音频",
+            "type": "AUDIO",
+            "slot_index": 0,
+            "links": [
+              5
+            ]
+          },
+          {
+            "name": "裁剪时长（秒）",
+            "type": "FLOAT",
+            "slot_index": 1,
+            "links": null
+          },
+          {
+            "name": "裁剪说明",
+            "type": "STRING",
+            "slot_index": 2,
+            "links": null
+          }
+        ],
+        "properties": {
+          "Node name for S&R": "AuKAudioTrim",
+          "cnr_id": "auk-t8",
+          "ver": "2.0.7"
+        },
+        "widgets_values": [
+          0,
+          2
+        ]
+      }
+    ],
+    "links": [
+      [
+        1,
+        1,
+        0,
+        3,
+        0,
+        "AUK_ENGINE"
+      ],
+      [
+        2,
+        2,
+        0,
+        6,
+        0,
+        "AUDIO"
+      ],
+      [
+        3,
+        3,
+        0,
+        4,
+        0,
+        "AUDIO"
+      ],
+      [
+        4,
+        3,
+        0,
+        5,
+        0,
+        "AUDIO"
+      ],
+      [
+        5,
+        6,
+        0,
+        3,
+        1,
+        "AUDIO"
+      ]
+    ],
+    "groups": [],
+    "config": {},
+    "extra": {
+      "ds": {
+        "scale": 0.6857142857142856,
+        "offset": [
+          203.33333333333337,
+          160
+        ]
+      },
+      "frontendVersion": "1.44.19"
+    },
+    "version": 0.4
+  },
+  "status": "success",
+  "actual_output_seconds": 1.36
+}

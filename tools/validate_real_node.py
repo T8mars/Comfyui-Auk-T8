@@ -65,7 +65,7 @@ def main() -> int:
         sway_sampling_coef=-1.0,
         duration_mode=nodes.AUTO_DURATION_MODE,
     ).result
-    output_audio, instruction, metadata_text = result
+    output_audio, instruction, metadata_text, _ = result
     output = output_audio["waveform"].squeeze(0)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     sf.write(args.output, output.T.numpy(), output_audio["sample_rate"], subtype="FLOAT")

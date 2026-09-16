@@ -73,7 +73,7 @@ def main() -> int:
         sway_sampling_coef=-1.0,
         duration_mode=nodes.AUTO_DURATION_MODE,
     ).result
-    output_audio, instruction, metadata_text = result
+    output_audio, instruction, metadata_text, _ = result
     out_dir = ROOT / "planning" / "comfy-effect-v2.0.6"
     out_dir.mkdir(parents=True, exist_ok=True)
     clean_path, degraded_path, output_path = (out_dir / "clean-reference.wav", out_dir / "degraded-input.wav", out_dir / "enhance-output.wav")

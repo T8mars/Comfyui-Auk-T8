@@ -212,7 +212,9 @@ class AuKEngine:
         try:
             self._load(self.vae_patcher)
             latent = self.inference.vae_model.denormalize(latent.to(self.device))
-            waveform = self.inference.vae_model.inference_from_latents(latent.permute(0, 2, 1)).cpu()
+            waveform = self.inference.vae_model.inference_from_latents(
+                latent.permute(0, 2, 1), clamp_output=False,
+            ).cpu()
         finally:
             self._unload(self.vae_patcher)
         if waveform.ndim == 3:
@@ -312,7 +314,13 @@ def latent_frames_to_seconds(engine: AuKEngine, frames: int) -> float:
     return math.nextafter(seconds, 0.0) if seconds > 0 else 0.0
 
 
-def validate_sequence_duration(engine: AuKEngine, audio: tuple[torch.Tensor, int] | None, target_seconds: float) -> None:
+def validate_sequence_duration(
+    engine: AuKEngine,
+    audio: tuple[torch.Tensor, int] | None,
+    target_seconds: float,
+    *,
+    input_seconds: float | None = None,
+) -> None:
     source_seconds = 0.0 if audio is None else audio[0].shape[-1] / audio[1]
     source_frames = source_latent_frames(engine, audio)
     if audio is not None and source_frames < 1:
@@ -321,8 +329,11 @@ def validate_sequence_duration(engine: AuKEngine, audio: tuple[torch.Tensor, int
     if not math.isfinite(target_seconds) or target_seconds <= 0:
         raise ValueError("生成时长必须是大于 0 的有限数值")
     max_frames = int(MAX_SEQUENCE_SECONDS * engine.target_sample_rate / engine.downsample_rate)
-    if source_frames > max_frames:
-        raise ValueError(f"输入音频 {source_seconds:.2f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制")
+    checked_seconds = source_seconds if input_seconds is None else input_seconds
+    if not math.isfinite(checked_seconds) or checked_seconds < 0:
+        raise ValueError("输入时长必须是非负有限数值")
+    if checked_seconds > MAX_SEQUENCE_SECONDS:
+        raise ValueError(f"输入音频 {checked_seconds:.6f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制；请先用音频裁剪节点截取")
     target_frames = max(1, math.ceil(target_seconds * engine.target_sample_rate / engine.downsample_rate))
     if target_frames > max_frames:
         raise ValueError(f"生成时长 {target_seconds:.2f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制")

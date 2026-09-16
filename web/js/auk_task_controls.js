@@ -2,7 +2,8 @@ import { app } from "../../../scripts/app.js";
 
 let guides = {};
 const guideUrl = new URL("../task_guides.json", import.meta.url);
-fetch(guideUrl)
+guideUrl.searchParams.set("v", "2.0.7");
+fetch(guideUrl, { cache: "no-store" })
     .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
@@ -48,7 +49,9 @@ app.registerExtension({
             Object.assign(container.style, {
                 boxSizing: "border-box",
                 width: "100%",
-                minHeight: "112px",
+                height: "100%",
+                minHeight: "0",
+                overflow: "auto",
                 padding: "10px 12px",
                 color: "#1f2937",
                 background: "#fff3f8",
@@ -61,11 +64,37 @@ app.registerExtension({
             const guideWidget = this.addDOMWidget("auk_task_guide", "div", container, {
                 serialize: false,
                 hideOnZoom: false,
+                getMinHeight: () => 160,
+                getHeight: () => 160,
             });
             guideWidget.serialize = false;
             guideWidget.options = { ...(guideWidget.options || {}), serialize: false };
 
-            this.aukRefreshTaskGuide = () => renderGuide(container, taskWidget.value);
+            this.aukRefreshTaskGuide = () => {
+                renderGuide(container, taskWidget.value);
+                const durationWidget = this.widgets?.find((widget) => widget.name === "duration_mode");
+                if (!durationWidget) return;
+                const button = document.createElement("button");
+                button.type = "button";
+                button.textContent = "↻ 自动适配时长";
+                button.title = "TTS 按目标文本估时；编辑按实际输入和任务规则计算，忽略连接的 Float。";
+                Object.assign(button.style, {
+                    marginTop: "6px", padding: "4px 10px", border: "1px solid #ff9dc8",
+                    borderRadius: "6px", background: "#ffffff", color: "#b31765", cursor: "pointer",
+                });
+                button.onclick = (event) => {
+                    event.stopPropagation();
+                    const secondsWidget = this.widgets?.find((widget) => widget.name === "generation_seconds");
+                    if (secondsWidget && (!Number.isFinite(Number(secondsWidget.value)) ||
+                        Number(secondsWidget.value) < 0.2 || Number(secondsWidget.value) > 30)) {
+                        secondsWidget.value = 3;
+                    }
+                    durationWidget.value = "自动适配（按任务规则）";
+                    durationWidget.callback?.(durationWidget.value);
+                    app.graph?.setDirtyCanvas(true, true);
+                };
+                container.prepend(button);
+            };
             const originalCallback = taskWidget.callback;
             taskWidget.callback = (value, ...args) => {
                 const callbackResult = originalCallback?.call(taskWidget, value, ...args);

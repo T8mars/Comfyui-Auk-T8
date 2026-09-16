@@ -17,6 +17,7 @@ from omegaconf import OmegaConf
 
 from .duration import (
     AUTO_DURATION_MODE,
+    AUTO_TASK_DURATION_MODE,
     MANUAL_DURATION_MODE,
     TTS_TASK_KEYS,
     estimate_tts_seconds,
@@ -30,7 +31,7 @@ from .runtime import (
     source_latent_frames,
     validate_sequence_duration,
 )
-from .preprocess import limit_vocal_output, prepare_model_audio
+from .preprocess import limit_vocal_output, prepare_model_audio, protect_audio_output
 from .task_templates import (
     TASK_GUIDES as TASK_GUIDES,
     TASK_BY_LABEL,
@@ -166,7 +167,7 @@ def normalize_audio(audio: dict[str, Any] | None) -> tuple[torch.Tensor, int] | 
         raise ValueError(f"AuK 每次只接受一段音频，当前 batch={waveform.shape[0]}")
     if waveform.shape[1] < 1 or waveform.shape[2] < 1:
         raise ValueError("输入音频为空")
-    if not isinstance(sample_rate, int) or sample_rate <= 0:
+    if isinstance(sample_rate, bool) or not isinstance(sample_rate, int) or sample_rate <= 0:
         raise ValueError(f"输入采样率无效：{sample_rate!r}")
     waveform = waveform[0].detach().to(device="cpu", dtype=torch.float32)
     if not torch.isfinite(waveform).all():
@@ -232,7 +233,7 @@ def resolve_generation_seconds(
         target = max(0.1, source_seconds + nonverbal_duration_delta(primary))
         target_frames = math.ceil(target * engine.target_sample_rate / engine.downsample_rate)
         return latent_frames_to_seconds(engine, target_frames)
-    if task_key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE:
+    if task_key in TTS_TASK_KEYS and duration_mode in {AUTO_DURATION_MODE, AUTO_TASK_DURATION_MODE}:
         return estimate_tts_seconds(primary, max_seconds=MAX_SEQUENCE_SECONDS)
     return float(requested_seconds)
 
@@ -351,16 +352,17 @@ class AuKGenerateEdit(io.ComfyNode):
                 ),
                 io.Combo.Input(
                     "duration_mode",
-                    display_name="TTS 时长模式",
-                    options=[AUTO_DURATION_MODE, MANUAL_DURATION_MODE],
-                    default=AUTO_DURATION_MODE,
-                    tooltip="自动估算可减少短文本因目标时长过长而在结尾读出内部提示词；非 TTS 任务仍按任务规则处理。",
+                    display_name="时长适配模式",
+                    options=[AUTO_TASK_DURATION_MODE, AUTO_DURATION_MODE, MANUAL_DURATION_MODE],
+                    default=AUTO_TASK_DURATION_MODE,
+                    tooltip="默认自动适配：TTS 按目标文本估时；编辑按任务规则计算，忽略目标时长和连接的 Float。手动指定仅用于 TTS，速度等编辑仍自动计算。",
                 ),
             ],
             outputs=[
                 io.Audio.Output("generated_audio", display_name="生成音频"),
                 io.String.Output("instruction", display_name="最终指令"),
                 io.String.Output("metadata", display_name="运行参数 JSON"),
+                io.Float.Output("applied_seconds", display_name="实际目标时长（秒）"),
             ],
         )
 
@@ -377,18 +379,31 @@ class AuKGenerateEdit(io.ComfyNode):
         nfe_steps: int = 32,
         cfg_strength: float = 2.0,
         sway_sampling_coef: float = -1.0,
-        duration_mode: str = AUTO_DURATION_MODE,
+        duration_mode: str = AUTO_TASK_DURATION_MODE,
     ) -> io.NodeOutput:
         if task not in TASK_BY_LABEL:
             raise ValueError(f"未知任务：{task}")
+        if duration_mode not in {AUTO_TASK_DURATION_MODE, AUTO_DURATION_MODE, MANUAL_DURATION_MODE}:
+            raise ValueError(f"未知时长模式：{duration_mode}")
+        if isinstance(seed, bool) or not isinstance(seed, int) or not 0 <= seed <= 0x7FFFFFFFFFFFFFFF:
+            raise ValueError("Seed 必须是 0 到 9223372036854775807 之间的整数")
+        if isinstance(nfe_steps, bool) or not isinstance(nfe_steps, int) or not 4 <= nfe_steps <= 64:
+            raise ValueError("NFE 步数必须是 4–64 之间的整数")
+        if not math.isfinite(float(cfg_strength)) or not 0 <= float(cfg_strength) <= 5:
+            raise ValueError("CFG 强度必须是 0–5 之间的有限数值")
+        if not math.isfinite(float(sway_sampling_coef)) or not -1 <= float(sway_sampling_coef) <= 1:
+            raise ValueError("Sway 系数必须是 -1–1 之间的有限数值")
         template = TASK_BY_LABEL[task]
         audio = normalize_audio(None if not template.needs_audio else input_audio)
         if template.needs_audio and audio is None:
             raise ValueError(f"“{task}”需要连接输入或参考音频")
         preprocessing = None
         duration_base_seconds = None
+        original_input_seconds = 0.0
         if audio is not None:
             waveform, sample_rate = audio
+            original_input_seconds = waveform.shape[-1] / sample_rate
+            validate_sequence_duration(engine, audio, 0.2)
             waveform, preprocessing = prepare_model_audio(waveform, sample_rate, template.key, primary)
             duration_base_seconds = float(preprocessing["speech_seconds_unpadded"])
             audio = (waveform, sample_rate)
@@ -405,7 +420,7 @@ class AuKGenerateEdit(io.ComfyNode):
             secondary,
             duration_base_seconds,
         )
-        validate_sequence_duration(engine, audio, target_seconds)
+        validate_sequence_duration(engine, audio, target_seconds, input_seconds=original_input_seconds)
         if engine.is_flash:
             nfe_steps, cfg_strength, sway_sampling_coef = 4, 0.0, -1.0
 
@@ -456,9 +471,11 @@ class AuKGenerateEdit(io.ComfyNode):
             phase_callback,
         )
         waveform, vocal_peak_limited = limit_vocal_output(waveform, template.key, int(sample_rate))
+        waveform, output_peak_protection = protect_audio_output(waveform)
         progress.update_absolute(100)
         effective_duration_strategy = (
-            "auto_text" if template.key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE else template.duration_strategy
+            "auto_text" if template.key in TTS_TASK_KEYS and duration_mode in {AUTO_DURATION_MODE, AUTO_TASK_DURATION_MODE}
+            else template.duration_strategy
         )
         metadata = {
             "model": engine.model_variant,
@@ -467,11 +484,14 @@ class AuKGenerateEdit(io.ComfyNode):
             "task": template.key,
             "seed": int(seed),
             "generation_seconds": target_seconds,
-            "requested_generation_seconds": requested_seconds,
+            "requested_generation_seconds": requested_seconds if math.isfinite(requested_seconds) else None,
             "duration_strategy": effective_duration_strategy,
             "duration_mode": duration_mode,
+            "original_input_seconds": original_input_seconds,
+            "prepared_input_seconds": 0.0 if audio is None else audio[0].shape[-1] / audio[1],
             "input_preprocessing": preprocessing,
             "vocal_output_peak_limited": vocal_peak_limited,
+            "output_peak_protection": output_peak_protection,
             "sample_rate": int(sample_rate),
             "actual_output_seconds": waveform.shape[-1] / int(sample_rate),
             "nfe_steps": int(nfe_steps),
@@ -486,12 +506,60 @@ class AuKGenerateEdit(io.ComfyNode):
             {"waveform": waveform.unsqueeze(0).cpu(), "sample_rate": int(sample_rate)},
             instruction,
             json.dumps(metadata, ensure_ascii=False, indent=2),
+            target_seconds,
         )
+
+
+class AuKAudioTrim(io.ComfyNode):
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="AuKAudioTrim",
+            display_name="AuK 音频裁剪 / 时长",
+            category="AuK · T8star-Aix",
+            description="按秒截取标准 AUDIO，保留声道和采样率；可重复从同一 Load Audio 截取不同片段，不修改原音频。裁剪后的音频连接 AuK 生成 / 编辑。",
+            inputs=[
+                io.Audio.Input("audio", display_name="原始音频"),
+                io.Float.Input("start_seconds", display_name="开始（秒）", default=0.0, min=0.0, step=0.01),
+                io.Float.Input("end_seconds", display_name="结束（秒；0 到结尾）", default=0.0, min=0.0, step=0.01),
+            ],
+            outputs=[
+                io.Audio.Output("trimmed_audio", display_name="裁剪音频"),
+                io.Float.Output("duration_seconds", display_name="裁剪时长（秒）"),
+                io.String.Output("info", display_name="裁剪说明"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, audio: dict[str, Any], start_seconds: float = 0.0, end_seconds: float = 0.0) -> io.NodeOutput:
+        # Reuse validation without returning its mono conversion: trimming must
+        # preserve the original channels for PreviewAudio and other nodes.
+        if normalize_audio(audio) is None:
+            raise ValueError("裁剪节点需要连接原始音频")
+        sample_rate = audio["sample_rate"]
+        waveform = audio["waveform"]
+        start, end = float(start_seconds), float(end_seconds)
+        if not math.isfinite(start) or not math.isfinite(end) or start < 0 or end < 0:
+            raise ValueError("裁剪开始和结束必须是非负有限秒数")
+        total = waveform.shape[-1]
+        if start >= total / sample_rate:
+            raise ValueError(f"裁剪开始超出原音频 {total / sample_rate:.3f}s")
+        first = round(start * sample_rate)
+        last = total if end == 0 else min(total, round(min(end, total / sample_rate) * sample_rate))
+        if first >= total or last <= first:
+            raise ValueError(f"裁剪范围无效：原音频 {total / sample_rate:.3f}s；结束必须大于开始，且开始不能超出音频")
+        cropped = waveform[..., first:last].detach().to(device="cpu", dtype=torch.float32).clone().contiguous()
+        seconds = cropped.shape[-1] / sample_rate
+        note = (
+            f"原音频 {total / sample_rate:.3f}s → 截取 {first / sample_rate:.3f}–{last / sample_rate:.3f}s → "
+            f"实际输入 {seconds:.3f}s；{sample_rate} Hz，{cropped.shape[1]} 声道"
+        )
+        return io.NodeOutput({"waveform": cropped, "sample_rate": sample_rate}, seconds, note)
 
 
 class AuKExtension(ComfyExtension):
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
-        return [AuKModelLoader, AuKGenerateEdit]
+        return [AuKModelLoader, AuKGenerateEdit, AuKAudioTrim]
 
 
 async def comfy_entrypoint() -> AuKExtension:

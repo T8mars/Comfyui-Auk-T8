@@ -5,6 +5,7 @@ import re
 
 TTS_TASK_KEYS = frozenset({"instruct_tts", "zero_shot_tts"})
 AUTO_DURATION_MODE = "自动估算（TTS 推荐）"
+AUTO_TASK_DURATION_MODE = "自动适配（按任务规则）"
 MANUAL_DURATION_MODE = "手动指定"
 
 _CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
@@ -43,4 +44,7 @@ def estimate_tts_seconds(text: str, *, max_seconds: float = 30.0) -> float:
     speed = _SHORT_TEXT_SPEED if len(value.encode("utf-8")) < _SHORT_TEXT_BYTE_THRESHOLD else 1.0
     frames = int(weight * _SAMPLE_RATE / _HOP_LENGTH / speed)
     seconds = frames * _HOP_LENGTH / _SAMPLE_RATE
-    return min(float(max_seconds), max(0.6, math.ceil(seconds * 10.0 - 1e-9) / 10.0))
+    result = max(0.6, math.ceil(seconds * 10.0 - 1e-9) / 10.0)
+    if result > float(max_seconds):
+        raise ValueError(f"目标文本预计需要 {result:.1f}s，超过 {max_seconds:.0f}s；请缩短文本或分段生成")
+    return result
