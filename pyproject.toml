@@ -1,6 +1,6 @@
 [project]
 name = "auk-t8"
-version = "2.0.5"
+version = "2.0.6"
 description = "Native ComfyUI V3 nodes for AuK speech generation and editing."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,6 +13,8 @@ dependencies = [
     "x-transformers>=1.31.14,<3",
     "safetensors>=0.4",
     "accelerate>=0.33",
+    "silero-vad>=6,<7",
+    "pyloudnorm>=0.2,<1",
 ]
 classifiers = [
     "Operating System :: Microsoft :: Windows",
@@ -35,3 +37,8 @@ includes = ["example_workflows"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--confcutdir=tests"
+
+[tool.ruff]
+extend-exclude = ["auk_core/model/vae/"]
+line-length = 130
+target-version = "py310"

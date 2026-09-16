@@ -1,0 +1,404 @@
+{
+  "schema": 1,
+  "results": {
+    "enhance_controlled": {
+      "verdict": "supported",
+      "proof_level": "paired_clean_reference",
+      "spectral_profile_distance_to_clean_before": 16.228662490844727,
+      "spectral_profile_distance_to_clean_after": 1.9187982082366943,
+      "relative_improvement": 0.8817648583597589,
+      "clean": {
+        "seconds": 5.5,
+        "rms_dbfs": -29.243005305238995,
+        "peak": 0.3616790771484375,
+        "dc_offset": -1.763176260283217e-05,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 586.6580448162277,
+        "high_band_ratio_4khz": 0.011610187590122223,
+        "spectral_flatness": 0.08597996830940247,
+        "f0_median_hz": 182.10946032123886,
+        "f0_p10_hz": 98.25158675958588,
+        "f0_p90_hz": 342.41245141795366,
+        "voiced_fraction": 0.6395348837209303
+      },
+      "degraded_input": {
+        "seconds": 5.5,
+        "rms_dbfs": -27.749775061486666,
+        "peak": 0.3757190704345703,
+        "dc_offset": -6.776082591386512e-05,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 848.5852250644834,
+        "high_band_ratio_4khz": 0.047756727784872055,
+        "spectral_flatness": 0.06497786939144135,
+        "f0_median_hz": 173.46910780866443,
+        "f0_p10_hz": 84.32366275369478,
+        "f0_p90_hz": 245.86951685990698,
+        "voiced_fraction": 0.6424418604651163
+      },
+      "output": {
+        "seconds": 5.5,
+        "rms_dbfs": -29.036752583969744,
+        "peak": 0.4312690496444702,
+        "dc_offset": -1.5153517551880213e-06,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 663.3294184646858,
+        "high_band_ratio_4khz": 0.013656643219292164,
+        "spectral_flatness": 0.243374764919281,
+        "f0_median_hz": 185.41224096921744,
+        "f0_p10_hz": 109.19407733434323,
+        "f0_p90_hz": 421.4929545745478,
+        "voiced_fraction": 0.6424418604651163
+      }
+    },
+    "quality_telephone": {
+      "verdict": "supported",
+      "proof_level": "paired_clean_reference",
+      "spectral_profile_distance_to_clean_before": 3.746932029724121,
+      "spectral_profile_distance_to_clean_after": 3.3000197410583496,
+      "relative_improvement": 0.11927419155737307,
+      "clean": {
+        "seconds": 5.5,
+        "rms_dbfs": -29.243005305238995,
+        "peak": 0.3616790771484375,
+        "dc_offset": -1.763176260283217e-05,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 586.6580448162277,
+        "high_band_ratio_4khz": 0.011610187590122223,
+        "spectral_flatness": 0.08597996830940247,
+        "f0_median_hz": 182.10946032123886,
+        "f0_p10_hz": 98.25158675958588,
+        "f0_p90_hz": 342.41245141795366,
+        "voiced_fraction": 0.6395348837209303
+      },
+      "degraded_input": {
+        "seconds": 5.5,
+        "rms_dbfs": -31.546382988884005,
+        "peak": 0.37755104899406433,
+        "dc_offset": 6.149833420288076e-10,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 618.4057857405045,
+        "high_band_ratio_4khz": 7.039556658128276e-05,
+        "spectral_flatness": 0.3081391453742981,
+        "f0_median_hz": 208.14031498407303,
+        "f0_p10_hz": 106.04281686183863,
+        "f0_p90_hz": 453.31671887269727,
+        "voiced_fraction": 0.6337209302325582
+      },
+      "output": {
+        "seconds": 5.5,
+        "rms_dbfs": -30.9291216187056,
+        "peak": 0.37832629680633545,
+        "dc_offset": 1.0390921261205222e-06,
+        "clipped_fraction": 0.0,
+        "spectral_centroid_hz": 626.8501403720701,
+        "high_band_ratio_4khz": 0.0003023826575372368,
+        "spectral_flatness": 0.2325076162815094,
+        "f0_median_hz": 215.3539520930102,
+        "f0_p10_hz": 114.58339072182513,
+        "f0_p90_hz": 448.89275932813985,
+        "voiced_fraction": 0.627906976744186
+      }
+    },
+    "speech_separate": {
+      "verdict": "supported",
+      "proof_level": "speaker_anchor_margin",
+      "speaker_anchor_cosines": {
+        "opening_speaker": 0.8799806237220764,
+        "reply_speaker": 0.918401837348938
+      },
+      "reply_minus_opening_margin": 0.03842121362686157,
+      "asr": {
+        "source": {
+          "text": "请对规矩这几个亲属事案都要利益申报我只会不是为了儿子既然你日记没有这么准也许是跟哪一个部门组织都没有关系你只依你的工作能力我坑坑认为你应该扎实主义会议权力这样对针对我们的同身落魄只依是恐怖时机你闻必不主义我的职业能力我依公众你一家安全条例别以为我分党分败别以为我保护你的主义不行",
+          "chunks": [
+            {
+              "text": "请对规矩这几个亲属事案",
+              "timestamp": [
+                0.0,
+                2.08
+              ]
+            },
+            {
+              "text": "都要利益申报",
+              "timestamp": [
+                2.18,
+                2.86
+              ]
+            },
+            {
+              "text": "我只会不是为了儿子",
+              "timestamp": [
+                2.98,
+                3.92
+              ]
+            },
+            {
+              "text": "既然你日记没有这么准",
+              "timestamp": [
+                3.92,
+                4.92
+              ]
+            },
+            {
+              "text": "也许是跟哪一个部门组织",
+              "timestamp": [
+                5.26,
+                6.36
+              ]
+            },
+            {
+              "text": "都没有关系",
+              "timestamp": [
+                6.5,
+                7.14
+              ]
+            },
+            {
+              "text": "你只依你的工作能力",
+              "timestamp": [
+                7.34,
+                8.58
+              ]
+            },
+            {
+              "text": "我坑坑认为",
+              "timestamp": [
+                8.7,
+                9.3
+              ]
+            },
+            {
+              "text": "你应该扎实主义会议权力",
+              "timestamp": [
+                9.4,
+                10.24
+              ]
+            },
+            {
+              "text": "这样对针对我们的同身落魄",
+              "timestamp": [
+                10.26,
+                12.08
+              ]
+            },
+            {
+              "text": "只依是恐怖时机",
+              "timestamp": [
+                12.3,
+                13.78
+              ]
+            },
+            {
+              "text": "你闻必不主义我的职业能力",
+              "timestamp": [
+                14.12,
+                15.44
+              ]
+            },
+            {
+              "text": "我依公众你一家安全条例",
+              "timestamp": [
+                15.46,
+                16.4
+              ]
+            },
+            {
+              "text": "别以为我分党分败",
+              "timestamp": [
+                16.46,
+                16.8
+              ]
+            },
+            {
+              "text": "别以为我保护你的主义",
+              "timestamp": [
+                16.86,
+                17.92
+              ]
+            },
+            {
+              "text": "不行",
+              "timestamp": [
+                18.04,
+                18.46
+              ]
+            }
+          ]
+        },
+        "output": {
+          "text": "我指揮不是為了我兒子跟哪一個部門崩潰都沒有關係我是職業的工作能力職業職的歹徒是針對我們的通訊漏洞職業職業是空洞,不好意思他不要注意我的指揮能力別跟我分擔分敗別以為保安局把你回頭罷了",
+          "chunks": []
+        },
+        "content_distance": {
+          "normalized_source": "请对规矩这几个亲属事案都要利益申报我只会不是为了儿子既然你日记没有这么准也许是跟哪一个部门组织都没有关系你只依你的工作能力我坑坑认为你应该扎实主义会议权力这样对针对我们的同身落魄只依是恐怖时机你闻必不主义我的职业能力我依公众你一家安全条例别以为我分党分败别以为我保护你的主义不行",
+          "normalized_output": "我指揮不是为了我儿子跟哪一个部門崩潰都沒有关系我是職業的工作能力職業職的歹徒是針对我們的通訊漏洞職業職業是空洞不好意思他不要注意我的指揮能力别跟我分擔分敗别以为保安局把你回頭罷了",
+          "char_edit_distance": 106,
+          "normalized_cer": 0.762589928057554,
+          "comparable": true
+        }
+      }
+    },
+    "target_speaker": {
+      "verdict": "inconclusive",
+      "proof_level": "conflicting_anchor_evidence",
+      "speaker_anchor_cosines": {
+        "opening_speaker": 0.8882209658622742,
+        "reply_speaker": 0.9147854447364807
+      },
+      "reply_minus_opening_margin": 0.026564478874206543,
+      "cosine_to_second_speaker_output": 0.9978583455085754,
+      "asr": {
+        "source": {
+          "text": "请对规矩这几个亲属事案都要利益申报我只会不是为了儿子既然你日记没有这么准也许是跟哪一个部门组织都没有关系你只依你的工作能力我坑坑认为你应该扎实主义会议权力这样对针对我们的同身落魄只依是恐怖时机你闻必不主义我的职业能力我依公众你一家安全条例别以为我分党分败别以为我保护你的主义不行",
+          "chunks": [
+            {
+              "text": "请对规矩这几个亲属事案",
+              "timestamp": [
+                0.0,
+                2.08
+              ]
+            },
+            {
+              "text": "都要利益申报",
+              "timestamp": [
+                2.18,
+                2.86
+              ]
+            },
+            {
+              "text": "我只会不是为了儿子",
+              "timestamp": [
+                2.98,
+                3.92
+              ]
+            },
+            {
+              "text": "既然你日记没有这么准",
+              "timestamp": [
+                3.92,
+                4.92
+              ]
+            },
+            {
+              "text": "也许是跟哪一个部门组织",
+              "timestamp": [
+                5.26,
+                6.36
+              ]
+            },
+            {
+              "text": "都没有关系",
+              "timestamp": [
+                6.5,
+                7.14
+              ]
+            },
+            {
+              "text": "你只依你的工作能力",
+              "timestamp": [
+                7.34,
+                8.58
+              ]
+            },
+            {
+              "text": "我坑坑认为",
+              "timestamp": [
+                8.7,
+                9.3
+              ]
+            },
+            {
+              "text": "你应该扎实主义会议权力",
+              "timestamp": [
+                9.4,
+                10.24
+              ]
+            },
+            {
+              "text": "这样对针对我们的同身落魄",
+              "timestamp": [
+                10.26,
+                12.08
+              ]
+            },
+            {
+              "text": "只依是恐怖时机",
+              "timestamp": [
+                12.3,
+                13.78
+              ]
+            },
+            {
+              "text": "你闻必不主义我的职业能力",
+              "timestamp": [
+                14.12,
+                15.44
+              ]
+            },
+            {
+              "text": "我依公众你一家安全条例",
+              "timestamp": [
+                15.46,
+                16.4
+              ]
+            },
+            {
+              "text": "别以为我分党分败",
+              "timestamp": [
+                16.46,
+                16.8
+              ]
+            },
+            {
+              "text": "别以为我保护你的主义",
+              "timestamp": [
+                16.86,
+                17.92
+              ]
+            },
+            {
+              "text": "不行",
+              "timestamp": [
+                18.04,
+                18.46
+              ]
+            }
+          ]
+        },
+        "output": {
+          "text": "警隊規矩我指揮不是為了我兒子跟哪一個部門風虛都沒有關係我是職業的工作能力職業職的歹徒是針對我們的通訊漏洞十一歲肯通知我不好意思不要職業我的指揮能力別跟我分黨分敗別以為保安局把路",
+          "chunks": []
+        },
+        "content_distance": {
+          "normalized_source": "请对规矩这几个亲属事案都要利益申报我只会不是为了儿子既然你日记没有这么准也许是跟哪一个部门组织都没有关系你只依你的工作能力我坑坑认为你应该扎实主义会议权力这样对针对我们的同身落魄只依是恐怖时机你闻必不主义我的职业能力我依公众你一家安全条例别以为我分党分败别以为我保护你的主义不行",
+          "normalized_output": "警隊规矩我指揮不是为了我儿子跟哪一个部門風虛都沒有关系我是職業的工作能力職業職的歹徒是針对我們的通訊漏洞十一歲肯通知我不好意思不要職業我的指揮能力别跟我分黨分敗别以为保安局把路",
+          "char_edit_distance": 103,
+          "normalized_cer": 0.7410071942446043,
+          "comparable": true
+        }
+      }
+    },
+    "music_vocals": {
+      "vocal_profile_cosine": 0.9941221475601196,
+      "accompaniment_profile_cosine": 0.7664346098899841,
+      "vocal_margin": 0.2276875376701355,
+      "demucs_stem_rms_dbfs": {
+        "drums": -17.20245701328345,
+        "bass": -19.99108973881061,
+        "other": -21.658141376206505,
+        "vocals": -19.56523595815524,
+        "accompaniment": -13.949197319491928
+      },
+      "limitation": "HDemucs stems are an independent pseudo-reference, not ground-truth stems; this tests consistency rather than separation fidelity.",
+      "verdict": "consistent_with_vocal_extraction",
+      "proof_level": "independent_pseudo_stem"
+    }
+  },
+  "summary": {
+    "enhance_controlled": "supported",
+    "quality_telephone": "supported",
+    "speech_separate": "supported",
+    "target_speaker": "inconclusive",
+    "music_vocals": "consistent_with_vocal_extraction"
+  }
+}

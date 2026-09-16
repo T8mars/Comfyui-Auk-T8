@@ -73,15 +73,24 @@ jobs:
             --url "${api}/publishers/${publisher}/nodes/${node}/versions/${current_id}" \
             --header "${auth}" \
             --header "Content-Type: application/json" \
-            --data '{"changelog":"Fixes cropped-audio duration handling and task-aware preprocessing, applies official duration rules to content, emotion, speed, and nonverbal edits, adds quality repair, defaults to AuK Base for editing quality, and ships drag-and-drop workflows for all 17 UI task entries.","deprecated":false}'
+            --data '{"changelog":"Applies independent 30-second limits to input and output, uses exact unpadded Silero speech duration and official LUFS handling, ignores stale duration widgets, validates task requests, and displays the matching official guide.","deprecated":false}'
 
-          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0 2.0.1 2.0.2 2.0.3 2.0.4; do
+          current_status="$(curl --silent --show-error --fail \
+            "${api}/nodes/${node}/versions?cacheBust=$(date +%s%N)" | \
+            jq -r --arg version "${current_version}" \
+              '.[] | select(.version == $version) | .status' | head -n 1)"
+          if [[ "${current_status}" != "NodeVersionStatusActive" ]]; then
+            echo "Registry version ${current_version} is ${current_status:-unavailable}; keeping all older versions available."
+            exit 0
+          fi
+
+          for old_version in 1.0.0 1.0.1 1.0.2 2.0.0 2.0.1 2.0.2 2.0.3 2.0.4 2.0.5; do
             old_id="$(get_version_id "${old_version}")"
             if [[ -n "${old_id}" ]]; then
               curl --fail-with-body --retry 3 --request PUT \
                 --url "${api}/publishers/${publisher}/nodes/${node}/versions/${old_id}" \
                 --header "${auth}" \
                 --header "Content-Type: application/json" \
-                --data '{"changelog":"Superseded by native release 2.0.5. Update to the latest version.","deprecated":true}'
+                --data '{"changelog":"Superseded by native release 2.0.6. Update to the latest version.","deprecated":true}'
             fi
           done

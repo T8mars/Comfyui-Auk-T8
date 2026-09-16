@@ -46,9 +46,9 @@ TASKS: tuple[TaskTemplate, ...] = (
     TaskTemplate("whisper", "音频编辑", "耳语转换", True, "转换方向", "附加要求（可选）", "source"),
     TaskTemplate("enhance", "修复与分离", "语音增强", True, "修复要求", "附加要求（可选）", "source"),
     TaskTemplate("quality", "修复与分离", "音质修复", True, "音质问题或修复要求", "无需填写", "source"),
-    TaskTemplate("speech_separate", "修复与分离", "说话人分离", True, "保留对象", "按顺序或内容描述", "source"),
+    TaskTemplate("speech_separate", "修复与分离", "说话人分离", True, "开始说话顺序", "可选：去噪 / 去混响", "source"),
     TaskTemplate("music_separate", "修复与分离", "音乐人声提取", True, "保留内容", "附加要求（可选）", "source"),
-    TaskTemplate("target_speaker", "修复与分离", "指定说话人提取", True, "目标说出的内容", "附加要求（可选）", "source"),
+    TaskTemplate("target_speaker", "修复与分离", "指定说话人提取", True, "目标说出的内容", "可选：去噪 / 去混响", "source"),
 )
 
 TASK_BY_KEY = {task.key: task for task in TASKS}
@@ -71,7 +71,7 @@ TASK_GUIDES: dict[str, TaskGuide] = {
         "也可写：删掉“那个”；在“你好”后面加上“呀”。完整原文只填到下方可选框，用于估算时长。",
     ),
     "lyric_edit": TaskGuide(
-        "必须上传歌唱录音；一次只替换一处歌词，原歌词必须与音频实际唱词一致。",
+        "必须上传无伴奏、隔离干净的独唱（a cappella）；一次只替换一处，原歌词必须与实际唱词一致。",
         "把歌词“明天你好”改成“未来你好”",
         "普通说话录音请使用“语音文字编辑”。完整歌词只填到下方可选框，用于估算时长。",
     ),
@@ -91,9 +91,9 @@ TASK_GUIDES: dict[str, TaskGuide] = {
         "0 dB 不会产生变化。",
     ),
     "emotion": TaskGuide(
-        "必须上传说话音频；目标情感限开心、愤怒、悲伤、恐惧、惊讶、厌恶、平静、兴奋。",
-        "开心",
-        "保持原说话内容和音色，只改变情感。",
+        "必须上传说话音频；目标情感限开心、愤怒、悲伤、恐惧、惊讶、厌恶、平静、兴奋。英文音频可填对应英文。",
+        "中文音频：悲伤｜英文音频：sad 或 fearful",
+        "保持原说话内容和音色，只改变情感；请让输入语言与填写语言一致。",
     ),
     "timbre": TaskGuide(
         "必须上传说话音频；用文字描述目标音色。",
@@ -108,7 +108,7 @@ TASK_GUIDES: dict[str, TaskGuide] = {
     "nonverbal": TaskGuide(
         "必须上传音频；一次添加或删除一种笑声、呼吸声、叹气、咳嗽等非语言声音。",
         "在“欢迎回来”后增加笑声",
-        "也可写：删除音频中所有呼吸声；在语音开头增加叹气声。",
+        "也可写：删除音频中所有呼吸声；在语音开头增加叹气声。未知事件或缺少位置会在运行前报错。",
     ),
     "whisper": TaskGuide(
         "必须上传说话音频；明确选择转为耳语或转回正常说话。",
@@ -128,7 +128,7 @@ TASK_GUIDES: dict[str, TaskGuide] = {
     "speech_separate": TaskGuide(
         "必须上传多说话人音频；按开始顺序指定保留对象。",
         "第一个开始说话的人",
-        "输出保留所选说话人并去掉其他说话人。",
+        "输出保留所选说话人并去掉其他说话人；可在附加要求填“去噪”“去混响”或两者。",
     ),
     "music_separate": TaskGuide(
         "必须上传含伴奏的混合音频；明确要保留哪类人声。",
@@ -138,13 +138,16 @@ TASK_GUIDES: dict[str, TaskGuide] = {
     "target_speaker": TaskGuide(
         "必须上传多说话人音频；填写目标说话人讲过的一小段准确内容。",
         "欢迎大家来到今天的节目",
-        "程序用这段内容定位说话人，然后只保留该说话人。",
+        "程序用这段内容定位说话人并只保留该说话人；可在附加要求填“去噪”“去混响”或两者。",
     ),
 }
 
 
 def _clean_replacement_slot(value: str) -> str:
-    return value.strip().strip("\"'“”‘’ ").rstrip("。.!！").strip()
+    # Users commonly write the quoted slot before the final sentence mark,
+    # for example: Replace 'old' with 'new'.  Strip both classes together so
+    # a quote revealed after removing the period cannot leak into the prompt.
+    return value.strip().strip("\"'“”‘’ ，,。.!！")
 
 
 def _quoted_slot(value: str) -> str:
@@ -159,10 +162,10 @@ def _canonical_replacement(value: str, *, lyrics: bool) -> str:
     if lyrics:
         text = re.sub(r"^(?:把|将)?\s*(?:这段)?歌词(?:中(?:的)?)?\s*", "把", text, count=1)
     patterns = (
-        r"(?:把|将)?\s*(.+?)\s*(?:改成|改为|替换成|替换为|换成)\s*(.+)",
-        r"(?:replace|change)\s+(.+?)\s+(?:with|to)\s+(.+)",
+        (r"(?:把|将)?\s*(.+?)\s*(?:改成|改为|替换成|替换为|换成)\s*(.+)", "zh"),
+        (r"(?:replace|change)\s+(.+?)\s+(?:with|to)\s+(.+?)(?:\s+in\s+the\s+(?:lyrics|vocal recording))?", "en"),
     )
-    for pattern in patterns:
+    for pattern, language in patterns:
         match = re.fullmatch(pattern, text, flags=re.IGNORECASE)
         if match is None:
             continue
@@ -172,8 +175,12 @@ def _canonical_replacement(value: str, *, lyrics: bool) -> str:
             break
         if original == replacement:
             raise ValueError("原词和替换词相同，不会产生变化")
+        if lyrics and language == "en":
+            return f'Change "{original}" to "{replacement}" in the vocal recording.'
         if lyrics:
             return f"把这段歌词中的“{original}”改成“{replacement}”。"
+        if language == "en":
+            return f"Replace '{original}' with '{replacement}'."
         return f"把‘{original}’改成‘{replacement}’"
     task_name = "歌词编辑" if lyrics else "语音文字编辑"
     raise ValueError(f"{task_name}格式不正确，请按上方示例填写，并且一次只改一处")
@@ -261,7 +268,9 @@ def parse_speed_multiplier(value: str) -> float:
 
 
 def _speed_adjustment(value: str) -> str:
-    return f"将语速调整为{parse_speed_multiplier(value):g}倍。"
+    multiplier = parse_speed_multiplier(value)
+    formatted = "2.0" if multiplier == 2.0 else f"{multiplier:g}"
+    return f"将语速调整为{formatted}倍。"
 
 
 EMOTION_ALIASES = {
@@ -272,6 +281,8 @@ EMOTION_ALIASES = {
         "厌恶": "厌恶", "嫌弃": "厌恶", "反感": "厌恶",
         "平静": "平静", "冷静": "平静", "淡定": "平静",
         "兴奋": "兴奋", "激动": "兴奋",
+        "happy": "开心", "angry": "愤怒", "sad": "悲伤", "fearful": "恐惧", "afraid": "恐惧",
+        "surprised": "惊讶", "disgusted": "厌恶", "calm": "平静", "excited": "兴奋",
 }
 
 EMOTION_DURATION_MULTIPLIERS = {
@@ -315,13 +326,19 @@ def _content_duration_slots(task_key: str, primary: str) -> tuple[str | None, st
     instruction = build_instruction(task_key, primary)
     if task_key == "lyric_edit":
         match = re.fullmatch(r"把这段歌词中的“(.+?)”改成“(.+?)”。", instruction)
-        if match is None:
-            raise ValueError("无法解析歌词编辑要求")
-        return match.group(2), match.group(1)
+        if match is not None:
+            return match.group(2), match.group(1)
+        english_lyric = re.fullmatch(r'Change "(.+?)" to "(.+?)" in the vocal recording\.', instruction)
+        if english_lyric is not None:
+            return english_lyric.group(2), english_lyric.group(1)
+        raise ValueError("无法解析歌词编辑要求")
 
     replace_match = re.fullmatch(r"把‘(.+?)’改成‘(.+?)’", instruction)
     if replace_match is not None:
         return replace_match.group(2), replace_match.group(1)
+    english_replace = re.fullmatch(r"Replace '(.+?)' with '(.+?)'\.", instruction)
+    if english_replace is not None:
+        return english_replace.group(2), english_replace.group(1)
     insert_match = re.fullmatch(r"在‘.+?’(?:前面|后面)加上‘(.+?)’", instruction)
     if insert_match is not None:
         return insert_match.group(1), None
@@ -354,7 +371,7 @@ def content_scaled_seconds(task_key: str, primary: str, source_seconds: float, t
 
 def nonverbal_duration_delta(primary: str) -> float:
     """Apply AuK's official event-family duration adjustment."""
-    text = str(primary or "").casefold()
+    text = _nonverbal_instruction(primary).casefold()
     operation = "delete" if any(word in text for word in ("删除", "删掉", "去掉", "remove", "delete")) else "add"
     families = (
         (("呼吸", "换气", "喘", "breath", "breathing", "pant", "inhale", "exhale"), 0.35, -0.60),
@@ -368,7 +385,14 @@ def nonverbal_duration_delta(primary: str) -> float:
 
 
 def _emotion_instruction(value: str) -> str:
-    return f"将情感转变为{normalize_emotion(value)}。"
+    normalized = normalize_emotion(value)
+    english = {
+        "开心": "happy", "愤怒": "angry", "悲伤": "sad", "恐惧": "afraid",
+        "惊讶": "surprised", "厌恶": "disgusted", "平静": "calm", "兴奋": "excited",
+    }
+    if re.search(r"[A-Za-z]", str(value or "")):
+        return f"Say this in a {english[normalized]} tone"
+    return f"将情感转变为{normalized}。"
 
 
 def _whisper_instruction(value: str) -> str:
@@ -400,25 +424,170 @@ def _music_separation_instruction(value: str) -> str:
     raise ValueError("音乐人声提取请填写“只保留歌声”或“保留所有人声（说话和歌唱）”")
 
 
+_NONVERBAL_ALIASES = {
+    "呼吸": "呼吸声", "换气": "换气声", "喘气": "喘气声", "breath": "breath",
+    "大笑": "大笑声", "笑声": "笑声", "laugh": "laugh", "laughter": "laughter",
+    "叹息": "叹息声", "叹气": "叹气声", "sigh": "sigh",
+    "清嗓": "清嗓声", "throat clearing": "throat clearing", "咳嗽": "咳嗽声", "cough": "cough",
+    "哦?": '"哦?"的疑问声', "嗯?": '"嗯?"的疑问声', "啊?": '"啊?"的疑问声', "诶?": '"诶?"的疑问声',
+    "咦?": '"咦?"的疑问声', "哦": '"哦"的惊讶声', "嗯": '"嗯"的应答声', "呃": '"呃"的语气词',
+    "啊": '"啊"的惊讶声',
+    "咂舌": "咂舌声", "啧": "啧声", "吸鼻": "吸鼻声", "sniff": "sniff",
+    "停顿": "停顿", "哇": '"哇"的惊讶声', "拉长": "拉长音", "拖音": "拖音",
+    "诶": '"诶?"的疑问声', "哭": "哭声", "啜泣": "啜泣声", "crying": "crying", "sobbing": "sobbing",
+    "哼": '"哼"的不满声', "倒吸": "倒吸气声", "惊喘": "惊喘声", "gasp": "gasp",
+    "咂嘴": "咂嘴声", "哟": '"哟"的惊讶声', "咦": '"咦?"的疑问声',
+    "偷笑": "偷笑声", "轻笑": "轻笑声", "哈欠": "哈欠声", "yawn": "yawn",
+    "喷嚏": "喷嚏声", "sneeze": "sneeze", "嘘": "嘘声", "喘息": "喘息声",
+    "拍手": "拍手声", "掌声": "掌声", "clap": "clap", "呻吟": "呻吟声", "moan": "moan",
+    "吸气": "吸气声", "inhale": "inhale", "鼓掌": "鼓掌声", "applaud": "applaud",
+    "哼唱": "哼唱声", "hum": "hum", "嘶": "嘶声", "hiss": "hiss", "呼气": "呼气声",
+    "exhale": "exhale", "口哨": "口哨声", "whistle": "whistle", "打呼噜": "打呼噜声",
+    "鼾": "鼾声", "snore": "snore", "grunt": "grunt",
+}
+
+
+def _nonverbal_sound(text: str) -> str:
+    folded = text.casefold()
+    for alias in sorted(_NONVERBAL_ALIASES, key=len, reverse=True):
+        if alias.casefold() in folded:
+            return _NONVERBAL_ALIASES[alias]
+    raise ValueError("未识别非语言声音；请使用笑声、叹气、呼吸、咳嗽、清嗓、吸鼻、哈欠等官方事件")
+
+
+def _nonverbal_instruction(value: str) -> str:
+    text = str(value or "").strip()
+    sound = _nonverbal_sound(text)
+    if any(word in text.casefold() for word in ("删除", "删掉", "去掉", "移除", "remove", "delete")):
+        return f"删除音频中所有的{sound}。"
+    if any(word in text for word in ("开头", "开始", "最前")):
+        return f"在语音开头增加{sound}。"
+    if any(word in text for word in ("结尾", "末尾", "最后")):
+        return f"在语音结尾增加{sound}。"
+    anchor_match = re.search(r"[‘'“\"](.+?)[’'”\"]\s*(前面|前|后面|后)", text)
+    if anchor_match is None:
+        raise ValueError("非语言声音编辑请明确删除、语音开头/结尾，或按示例用引号写锚点：在“欢迎回来”后增加笑声")
+    anchor = _quoted_slot(anchor_match.group(1))
+    side = "前" if anchor_match.group(2).startswith("前") else "后"
+    return f"在“{anchor}”{side}增加{sound}。"
+
+
+def _cleanup_mode(value: str) -> str | None:
+    text = str(value or "")
+    denoise = any(word in text for word in ("去噪", "降噪", "去底噪", "去杂音", "去除噪声"))
+    dereverb = any(word in text for word in ("去混响", "去除混响", "去回声", "去除回声"))
+    if denoise and dereverb:
+        return "both"
+    if denoise:
+        return "denoise"
+    if dereverb:
+        return "dereverb"
+    return None
+
+
 def _quality_instruction(value: str) -> str:
     text = str(value or "").strip()
+    cleanup = _cleanup_mode(text)
     if any(word in text for word in ("带宽", "高频", "超分辨率", "清晰度", "补频")):
-        return "请对这段语音做超分辨率/带宽扩展处理，恢复被削掉的高频成分，输出宽带纯净人声。"
+        if cleanup == "both":
+            return "请对这段语音做超分辨率/带宽扩展处理，恢复被削掉的高频成分，同时完成去噪与去混响，输出宽带纯净人声。"
+        if cleanup == "denoise":
+            return "请对这段语音做超分辨率/带宽扩展处理，恢复被削掉的高频成分，同时完成去噪，输出宽带纯净人声。"
+        if cleanup == "dereverb":
+            return "请对这段语音做超分辨率/带宽扩展处理，恢复被削掉的高频成分，同时去除房间混响，输出宽带纯净人声。"
+        return "This audio suffers from limited bandwidth. Please restore it to a wideband, clear-sounding speech."
     effects = (
-        ("电话", ("电话", "手机", "窄带")),
-        ("扩音器", ("扩音器", "喇叭", "广播")),
-        ("水下闷声", ("水下", "闷声", "发闷")),
-        ("削波破音", ("削波", "破音", "爆音")),
-        ("丢包瞬断", ("丢包", "瞬断", "断续")),
-        ("直流偏置", ("直流", "偏置")),
+        ("telephone", ("电话", "手机", "窄带")),
+        ("megaphone", ("扩音器", "喇叭", "广播")),
+        ("underwater", ("水下", "闷声", "发闷")),
+        ("clipping", ("削波", "破音", "爆音")),
+        ("dropout", ("丢包", "瞬断", "断续")),
+        ("dc", ("直流", "偏置")),
     )
+    prompts = {
+        "telephone": {
+            None: "This audio suffers from limited bandwidth. Please restore it to a wideband, clear-sounding speech.",
+            "denoise": "请消除这段音频的电话带宽感，同时完成去噪，输出正常带宽的干净人声。",
+            "dereverb": "请消除这段音频的电话带宽感，并去除房间混响，输出正常带宽的干净人声。",
+            "both": "请消除这段音频的电话带宽感，并去除其中的噪声和混响，输出正常带宽的干净人声。",
+        },
+        "megaphone": {
+            None: "请消除这段音频的扩音器音色，输出自然清晰的人声。",
+            "denoise": "请消除这段音频的扩音器音色，同时完成去噪，输出自然清晰的人声。",
+            "dereverb": "请消除这段音频的扩音器音色，并去除房间混响，输出自然清晰的人声。",
+            "both": "请消除这段音频的扩音器音色，并去除其中的噪声和混响，输出自然清晰的人声。",
+        },
+        "underwater": {
+            None: "请消除这段音频的水下闷声效果，输出清晰的宽带人声。",
+            "denoise": "请消除这段音频的水下闷声效果，同时完成去噪，输出清晰的宽带人声。",
+            "dereverb": "请消除这段音频的水下闷声效果，并去除房间混响，输出清晰的宽带人声。",
+            "both": "请消除这段音频的水下闷声效果，并去除其中的噪声和混响，输出清晰的宽带人声。",
+        },
+        "clipping": {
+            None: "请对这段音频做去破音处理，修复被硬削掉的波形，输出干净完整的人声。",
+            "denoise": "请对这段音频做去破音处理，修复被硬削掉的波形，同时完成去噪，输出干净完整的人声。",
+            "dereverb": "请对这段音频做去破音处理，修复被硬削掉的波形，并去除房间混响，输出干净完整的人声。",
+            "both": "请对这段音频做去破音处理，修复被硬削掉的波形，并去除其中的噪声和混响，输出干净完整的人声。",
+        },
+        "dropout": {
+            None: "请修复这段语音中的丢包脱落问题，输出连续自然的人声。",
+            "denoise": "请修复这段语音中的丢包脱落问题，同时完成去噪，输出连续自然的人声。",
+            "dereverb": "请修复这段语音中的丢包脱落问题，并去除房间混响，输出连续自然的人声。",
+            "both": "请修复这段语音中的丢包脱落问题，并去除其中的噪声和混响，输出连续自然的人声。",
+        },
+        "dc": {
+            None: "这段音频存在直流偏置，请把直流成分去掉，输出居中的干净人声。",
+            "denoise": "这段音频存在直流偏置，请把直流成分去掉，同时完成去噪，输出居中的干净人声。",
+            "dereverb": "这段音频存在直流偏置，请把直流成分去掉，并去除房间混响，输出居中的干净人声。",
+            "both": "这段音频存在直流偏置，请把直流成分去掉，并去除其中的噪声和混响，输出居中的干净人声。",
+        },
+    }
     for effect, aliases in effects:
         if any(alias in text for alias in aliases):
-            return (
-                f"请消除这段音频的{effect}音色，这段音频带有混响，请恢复成无混响的干声，"
-                "输出自然清晰的人声。"
-            )
+            return prompts[effect][cleanup]
     raise ValueError("音质修复请填写“补充高频并提升清晰度”，或明确电话、扩音器、水下闷声等音色问题")
+
+
+_ZH_ORDINALS = {"一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+
+def _speaker_order_instruction(primary: str, secondary: str) -> str:
+    text = f"{primary} {secondary}".strip()
+    match = re.search(r"第?\s*(\d+|[一二两三四五六七八九十])\s*(?:个|位)?(?:开始)?说话", text)
+    if match is None:
+        raise ValueError("说话人分离请填写开始说话的顺序，例如“第一个开始说话的人”")
+    raw = match.group(1)
+    order = int(raw) if raw.isdigit() else _ZH_ORDINALS[raw]
+    if order < 1:
+        raise ValueError("说话人顺序必须从 1 开始")
+    zh = next((key for key, number in _ZH_ORDINALS.items() if number == order and key != "两"), str(order))
+    cleanup = _cleanup_mode(text)
+    if cleanup == "denoise":
+        return f"请保留第{zh}个开始说话的人，去掉其他说话人，并去除其中的背景噪声，输出单条纯净人声。"
+    if cleanup == "dereverb":
+        return f"请保留第{zh}个开始说话的人，去掉其他说话人，并去除房间混响，输出单条纯净人声。"
+    if cleanup == "both":
+        return f"请保留第{zh}个开始说话的人，去掉其他说话人，并去除其中的噪声和混响，输出单条纯净人声。"
+    ordinals = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+    ordinal = ordinals.get(order, f"{order}th")
+    return f"Keep only the {ordinal} speaker"
+
+
+def _target_speaker_instruction(primary: str, secondary: str) -> str:
+    spoken_text = _quoted_slot(primary)
+    cleanup = _cleanup_mode(f"{primary} {secondary}")
+    if cleanup == "denoise":
+        return f"请在这段输入语音中保留说“{spoken_text}”的那位说话人，去掉其他说话人并对音频去噪，输出单条纯净人声。"
+    if cleanup == "dereverb":
+        return f"请在这段输入语音中保留说“{spoken_text}”的那位说话人，去掉其他说话人并去除房间混响，输出单条纯净人声。"
+    if cleanup == "both":
+        return f"请在这段输入语音中保留说“{spoken_text}”的那位说话人，去掉其他说话人，并去除其中的噪声和混响，输出单条纯净人声。"
+    return f"Keep only the speaker who says “{spoken_text}”"
+
+
+def _timbre_instruction(value: str) -> str:
+    description = str(value or "").strip().strip("。")
+    return f"请将这段音频的音色修改为符合以下描述的声音：“{description}”。"
 
 
 def build_instruction(task_key: str, primary: str, secondary: str = "") -> str:
@@ -448,15 +617,21 @@ def build_instruction(task_key: str, primary: str, secondary: str = "") -> str:
         return _music_separation_instruction(primary)
     if task_key == "quality":
         return _quality_instruction(primary)
+    if task_key == "nonverbal":
+        return _nonverbal_instruction(primary)
+    if task_key == "speech_separate":
+        return _speaker_order_instruction(primary, secondary)
+    if task_key == "target_speaker":
+        return _target_speaker_instruction(primary, secondary)
+    if task_key == "timbre":
+        return _timbre_instruction(primary)
     templates = {
+        # The official field is required.  The local API supplies an explicit,
+        # documented product default so programmatic callers remain compatible.
         "instruct_tts": f'请基于下面的描述: "{secondary or "自然、清晰的声音"}",生成语音内容"{primary}".',
         # Match AuK's training prompt exactly. Extra transcript or descriptive
         # prose can make the model continue the reference audio's content.
         "zero_shot_tts": f'Say the following with the same voice: "{primary}"',
-        "timbre": f"请将这段音频的音色修改为符合以下描述的声音：“{primary}”。",
         "deaccent": "请去掉这段语音里的方言口音，保持说话人音色一致。",
-        "nonverbal": f"{primary.rstrip('。.!！')}。",
-        "speech_separate": f"这段音频中只保留{primary}对应的语音，去掉其余说话人。",
-        "target_speaker": f"请只保留说'{primary}'的人，去掉其他说话人，输出等长纯净人声。",
     }
     return templates[task_key].strip()

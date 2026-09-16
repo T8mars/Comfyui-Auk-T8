@@ -1,7 +1,16 @@
 .github/
 tests/
 docs/
+planning/
+tools/
+outputs/
+output/
+audit/
+runtime/
+models/
+.test-deps/
+*.wav
+*.log
 *.md
 !README.md
 !README_CN.md
-

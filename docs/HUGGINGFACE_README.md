@@ -13,9 +13,9 @@ tags:
 
 # AuK-Comfy model mirror / 模型镜像
 
-This repository contains the models used by the independent [AuK · T8star-Aix native ComfyUI nodes](https://github.com/T8mars/Comfyui-Auk-T8) and by the separate [AuK Local one-click package](https://pan.quark.cn/s/264edb7e36bd).
+This repository contains the models used by the independent [AuK · T8star-Aix native ComfyUI nodes](https://github.com/T8mars/Comfyui-Auk-T8) and by the separate [AuK Local source and releases](https://github.com/T8mars/AuK-Local). The complete local package is distributed through [Quark Drive](https://pan.quark.cn/s/264edb7e36bd).
 
-本仓库保存独立的 [AuK · T8star-Aix ComfyUI 原生节点](https://github.com/T8mars/Comfyui-Auk-T8)与单独的 [AuK Local 一键整合包](https://pan.quark.cn/s/264edb7e36bd)所需模型。两者可以分别安装和运行。
+本仓库保存独立的 [AuK · T8star-Aix ComfyUI 原生节点](https://github.com/T8mars/Comfyui-Auk-T8)与单独的 [AuK Local 源码及 Release](https://github.com/T8mars/AuK-Local)所需模型；完整版整合包在[夸克网盘](https://pan.quark.cn/s/264edb7e36bd)发布。两者可以分别安装和运行。
 
 ## Contents / 内容
 
@@ -34,6 +34,7 @@ Copy the three folders into `ComfyUI/models/auk`. The native node loads them dir
 ## Links / 社媒与资源
 
 - [GitHub nodes / GitHub 节点](https://github.com/T8mars/Comfyui-Auk-T8)
+- [AuK Local source and releases / AuK Local 源码与更新](https://github.com/T8mars/AuK-Local)
 - [Bilibili / B站](https://space.bilibili.com/385085361)
 - [YouTube](https://www.youtube.com/@T8star-Aix/)
 - [API](https://api.seedance.nz/sign-up?aff=5f4w)

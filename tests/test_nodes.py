@@ -42,6 +42,25 @@ def test_v3_extension_registers_two_native_nodes(plugin):
     assert [node.__name__ for node in classes] == ["AuKModelLoader", "AuKGenerateEdit"]
 
 
+def test_web_task_guide_covers_every_visible_task(plugin):
+    root = Path(plugin.__file__).parent
+    assert plugin.WEB_DIRECTORY == "./web"
+    guide_data = json.loads((root / "web" / "task_guides.json").read_text(encoding="utf-8"))
+    assert set(guide_data) == {task.label for task in plugin.nodes.TASKS}
+    for task in plugin.nodes.TASKS:
+        entry = guide_data[task.label]
+        guide = plugin.nodes.TASK_GUIDES[task.key]
+        assert entry["key"] == task.key
+        assert entry["primary_label"] == task.primary_label
+        assert entry["secondary_label"] == task.secondary_label
+        assert entry["requirement"] == guide.requirement
+        assert entry["example"] == guide.example
+        assert entry["note"] == guide.note
+    script = (root / "web" / "js" / "auk_task_guide.js").read_text(encoding="utf-8")
+    assert "loadedGraphNode" in script
+    assert "serialize: false" in script
+
+
 def test_runtime_has_no_service_client(plugin):
     root = Path(plugin.__file__).parent
     runtime_text = "\n".join((root / name).read_text(encoding="utf-8") for name in ("nodes.py", "runtime.py"))
@@ -59,6 +78,8 @@ def test_all_task_templates_build_local_instruction(plugin):
         "enhance": "去噪并去混响",
         "music_separate": "只保留歌声",
         "quality": "去掉电话感",
+        "nonverbal": "在开头增加笑声",
+        "speech_separate": "第一个开始说话的人",
     }
     for task in plugin.nodes.TASKS:
         primary = discrete_inputs.get(task.key, "主要内容")
@@ -85,17 +106,25 @@ def test_zero_shot_uses_official_instruction_without_reference_transcript(plugin
         ("emotion", "悲伤", "将情感转变为悲伤。"),
         ("timbre", "低沉男声", "请将这段音频的音色修改为符合以下描述的声音：“低沉男声”。"),
         ("deaccent", "去掉方言口音", "请去掉这段语音里的方言口音，保持说话人音色一致。"),
-        ("nonverbal", "在开头增加笑声", "在开头增加笑声。"),
+        ("nonverbal", "在开头增加笑声", "在语音开头增加笑声。"),
         ("whisper", "转换成耳语", "用小声耳语的方式把这段话说出来。"),
         ("enhance", "去噪并去混响", "请对这段语音做纯净化处理，保留所有说话人的人声，并去除其中的噪声和混响，输出与输入等长的干净人声。"),
-        ("quality", "去掉电话感", "请消除这段音频的电话音色，这段音频带有混响，请恢复成无混响的干声，输出自然清晰的人声。"),
-        ("speech_separate", "第一个开始说话的人", "这段音频中只保留第一个开始说话的人对应的语音，去掉其余说话人。"),
+        ("quality", "去掉电话感", "This audio suffers from limited bandwidth. Please restore it to a wideband, clear-sounding speech."),
+        ("speech_separate", "第一个开始说话的人", "Keep only the first speaker"),
         ("music_separate", "只保留歌声", "请只保留歌声，其余声音都去掉。"),
-        ("target_speaker", "欢迎大家", "请只保留说'欢迎大家'的人，去掉其他说话人，输出等长纯净人声。"),
+        ("target_speaker", "欢迎大家", "Keep only the speaker who says “欢迎大家”"),
     ],
 )
 def test_every_task_uses_exact_official_instruction_and_ignores_secondary(plugin, task_key, primary, expected):
     assert plugin.nodes.build_instruction(task_key, primary, "不应发送") == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("sad", "Say this in a sad tone"), ("fearful", "Say this in a afraid tone")],
+)
+def test_english_emotion_uses_official_demo_wording(plugin, value, expected):
+    assert plugin.nodes.build_instruction("emotion", value) == expected
 
 
 @pytest.mark.parametrize(
@@ -135,7 +164,7 @@ def test_signed_adjustments_reject_conflicting_direction(plugin, value):
         plugin.nodes.build_instruction("pitch", value)
 
 
-@pytest.mark.parametrize(("value", "expected"), [("1.5", "将语速调整为1.5倍。"), ("2x", "将语速调整为2倍。")])
+@pytest.mark.parametrize(("value", "expected"), [("1.5", "将语速调整为1.5倍。"), ("2x", "将语速调整为2.0倍。")])
 def test_speed_uses_supported_official_multipliers(plugin, value, expected):
     assert plugin.nodes.build_instruction("speed", value) == expected
 
@@ -144,6 +173,32 @@ def test_speed_uses_supported_official_multipliers(plugin, value, expected):
 def test_speed_rejects_ambiguous_or_unsupported_values(plugin, value):
     with pytest.raises(ValueError, match="速度倍率"):
         plugin.nodes.build_instruction("speed", value)
+
+
+def test_nonverbal_requests_are_canonicalized_and_unknown_events_rejected(plugin):
+    assert plugin.nodes.build_instruction("nonverbal", "在开头增加笑声") == "在语音开头增加笑声。"
+    assert plugin.nodes.build_instruction("nonverbal", "删除全部呼吸") == "删除音频中所有的呼吸声。"
+    assert plugin.nodes.build_instruction("nonverbal", "在“欢迎回来”后增加叹气") == "在“欢迎回来”后增加叹气声。"
+    with pytest.raises(ValueError, match="未识别非语言声音"):
+        plugin.nodes.build_instruction("nonverbal", "在开头增加火车声")
+    with pytest.raises(ValueError, match="明确删除"):
+        plugin.nodes.build_instruction("nonverbal", "增加笑声")
+
+
+def test_quality_cleanup_is_only_added_when_explicit(plugin):
+    assert plugin.nodes.build_instruction("quality", "去掉电话感") == (
+        "This audio suffers from limited bandwidth. Please restore it to a wideband, clear-sounding speech."
+    )
+    assert plugin.nodes.build_instruction("quality", "去掉电话感并去噪") == (
+        "请消除这段音频的电话带宽感，同时完成去噪，输出正常带宽的干净人声。"
+    )
+
+
+def test_replacement_trailing_quote_and_period_do_not_leak(plugin):
+    instruction = plugin.nodes.build_instruction(
+        "content_edit", "Replace 'old words' with 'new words'.",
+    )
+    assert instruction == "Replace 'old words' with 'new words'."
 
 
 def test_normalize_audio_downmixes_to_mono(plugin):
@@ -376,11 +431,15 @@ def test_automatic_edit_ignores_stale_out_of_range_duration_widget(plugin):
     assert json.loads(result.result[2])["requested_generation_seconds"] == 48.0
 
 
-def test_sequence_limit_counts_source_and_target(plugin):
+def test_sequence_limit_checks_source_and_target_independently(plugin):
     engine = FakeEngine()
-    source = (torch.zeros(1, 24_000 * 10), 24_000)
+    source = (torch.zeros(1, 24_000 * 30), 24_000)
+    plugin.nodes.validate_sequence_duration(engine, source, 30.0)
+    too_long_source = (torch.zeros(1, 24_000 * 31), 24_000)
     with pytest.raises(ValueError, match="30s"):
-        plugin.nodes.validate_sequence_duration(engine, source, 20.1)
+        plugin.nodes.validate_sequence_duration(engine, too_long_source, 20.0)
+    with pytest.raises(ValueError, match="30s"):
+        plugin.nodes.validate_sequence_duration(engine, source, 30.1)
 
 
 def test_sequence_limit_rejects_sub_frame_reference(plugin):

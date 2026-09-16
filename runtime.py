@@ -320,9 +320,9 @@ def validate_sequence_duration(engine: AuKEngine, audio: tuple[torch.Tensor, int
         raise ValueError(f"输入音频过短，至少需要 {minimum_seconds:.3f}s")
     if not math.isfinite(target_seconds) or target_seconds <= 0:
         raise ValueError("生成时长必须是大于 0 的有限数值")
-    target_frames = max(1, math.ceil(target_seconds * engine.target_sample_rate / engine.downsample_rate))
     max_frames = int(MAX_SEQUENCE_SECONDS * engine.target_sample_rate / engine.downsample_rate)
-    if source_frames + target_frames > max_frames:
-        raise ValueError(
-            f"输入 {source_seconds:.2f}s 与输出 {target_seconds:.2f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 总时长限制"
-        )
+    if source_frames > max_frames:
+        raise ValueError(f"输入音频 {source_seconds:.2f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制")
+    target_frames = max(1, math.ceil(target_seconds * engine.target_sample_rate / engine.downsample_rate))
+    if target_frames > max_frames:
+        raise ValueError(f"生成时长 {target_seconds:.2f}s 超过 AuK 的 {MAX_SEQUENCE_SECONDS:.0f}s 限制")

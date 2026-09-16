@@ -32,6 +32,7 @@ from .runtime import (
 )
 from .preprocess import limit_vocal_output, prepare_model_audio
 from .task_templates import (
+    TASK_GUIDES as TASK_GUIDES,
     TASK_BY_LABEL,
     TASKS,
     build_instruction,
@@ -184,34 +185,51 @@ def resolve_generation_seconds(
     task_key: str | None = None,
     duration_mode: str = MANUAL_DURATION_MODE,
     secondary: str = "",
+    duration_base_seconds: float | None = None,
 ) -> float:
     """Resolve the output duration while preserving source length for fixed-length edits."""
     if duration_strategy == "source":
         if audio is None:
             raise ValueError("等长任务需要输入音频")
+        if duration_base_seconds is not None:
+            target_frames = math.ceil(duration_base_seconds * engine.target_sample_rate / engine.downsample_rate)
+            return latent_frames_to_seconds(engine, target_frames)
         return source_aligned_seconds(engine, audio)
     if duration_strategy == "speed":
         if audio is None:
             raise ValueError("速度编辑需要输入音频")
-        target_frames = math.ceil(source_latent_frames(engine, audio) / parse_speed_multiplier(primary))
+        if duration_base_seconds is None:
+            target_frames = math.ceil(source_latent_frames(engine, audio) / parse_speed_multiplier(primary))
+        else:
+            target_frames = math.ceil(
+                duration_base_seconds * engine.target_sample_rate / engine.downsample_rate / parse_speed_multiplier(primary)
+            )
         return latent_frames_to_seconds(engine, target_frames)
     if duration_strategy == "emotion":
         if audio is None:
             raise ValueError("情绪编辑需要输入音频")
-        target_frames = math.ceil(source_latent_frames(engine, audio) * emotion_duration_multiplier(primary))
+        if duration_base_seconds is None:
+            target_frames = math.ceil(source_latent_frames(engine, audio) * emotion_duration_multiplier(primary))
+        else:
+            target_frames = math.ceil(
+                duration_base_seconds
+                * engine.target_sample_rate
+                / engine.downsample_rate
+                * emotion_duration_multiplier(primary)
+            )
         return latent_frames_to_seconds(engine, target_frames)
     if duration_strategy == "content":
         if audio is None or task_key is None:
             raise ValueError("文字/歌词编辑需要输入音频")
-        target = content_scaled_seconds(
-            task_key, primary, source_aligned_seconds(engine, audio), str(secondary or "").strip(),
-        )
+        source_seconds = duration_base_seconds if duration_base_seconds is not None else source_aligned_seconds(engine, audio)
+        target = content_scaled_seconds(task_key, primary, source_seconds, str(secondary or "").strip())
         target_frames = math.ceil(target * engine.target_sample_rate / engine.downsample_rate)
         return latent_frames_to_seconds(engine, target_frames)
     if duration_strategy == "nonverbal":
         if audio is None:
             raise ValueError("非语言声音编辑需要输入音频")
-        target = max(0.1, source_aligned_seconds(engine, audio) + nonverbal_duration_delta(primary))
+        source_seconds = duration_base_seconds if duration_base_seconds is not None else source_aligned_seconds(engine, audio)
+        target = max(0.1, source_seconds + nonverbal_duration_delta(primary))
         target_frames = math.ceil(target * engine.target_sample_rate / engine.downsample_rate)
         return latent_frames_to_seconds(engine, target_frames)
     if task_key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE:
@@ -368,9 +386,11 @@ class AuKGenerateEdit(io.ComfyNode):
         if template.needs_audio and audio is None:
             raise ValueError(f"“{task}”需要连接输入或参考音频")
         preprocessing = None
+        duration_base_seconds = None
         if audio is not None:
             waveform, sample_rate = audio
             waveform, preprocessing = prepare_model_audio(waveform, sample_rate, template.key, primary)
+            duration_base_seconds = float(preprocessing["speech_seconds_unpadded"])
             audio = (waveform, sample_rate)
         instruction = build_instruction(template.key, primary, secondary)
         requested_seconds = float(generation_seconds)
@@ -383,6 +403,7 @@ class AuKGenerateEdit(io.ComfyNode):
             template.key,
             duration_mode,
             secondary,
+            duration_base_seconds,
         )
         validate_sequence_duration(engine, audio, target_seconds)
         if engine.is_flash:
@@ -434,7 +455,7 @@ class AuKGenerateEdit(io.ComfyNode):
             interrupt_callback,
             phase_callback,
         )
-        waveform, vocal_peak_limited = limit_vocal_output(waveform, template.key)
+        waveform, vocal_peak_limited = limit_vocal_output(waveform, template.key, int(sample_rate))
         progress.update_absolute(100)
         effective_duration_strategy = (
             "auto_text" if template.key in TTS_TASK_KEYS and duration_mode == AUTO_DURATION_MODE else template.duration_strategy
